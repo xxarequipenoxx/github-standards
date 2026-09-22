@@ -17,3 +17,13 @@
 coverage.xml
 junit.xml
 .terraform/
+
+# OpenTofu (terraform/): state, plans and the backend/variable files that hold bucket names
+# or values; only .terraform.lock.hcl is committed.
+*.tfstate
+*.tfstate.*
+*.tfplan
+backend.hcl
+*.tfvars
+!*.tfvars.example
+crash.log

@@ -119,3 +119,13 @@ jobs:
       contents: read
     with:
       paths: '["tests/fixtures/kustomize/overlays/ci"]'
+
+  # S3: repositories as code (terraform/). Static checks and the mocked tofu test only; no
+  # token is available here and nothing is ever planned or applied against GitHub.
+  terraform:
+    uses: ./.github/workflows/opentofu.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+    with:
+      working-directory: terraform
+      run-tests: true
