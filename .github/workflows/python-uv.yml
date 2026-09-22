@@ -1,0 +1,267 @@
+name: python-uv
+
+# Reusable: quality gates of a uv-managed Python project. uv sync --frozen, ruff check,
+# ruff format --check, mypy, pytest with the coverage gate on SQLite plus one job per
+# PostgreSQL version as a service container, pip-audit on the exported lock.
+#
+# PostgreSQL jobs export libpq's PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE and
+# TEST_DATABASE_URL (postgresql://...); the project's test setup reads them.
+#
+# Status check names: <caller job id> / lint and types, <caller job id> / tests (sqlite),
+#   <caller job id> / tests (postgresql <version>), <caller job id> / dependency audit
+# Caller permissions: contents: read
+# Caller secrets: GIT_READ_TOKEN when git-credentials is true
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version for uv (empty = the project's .python-version or requires-python)
+        type: string
+        required: false
+        default: ""
+      postgres-versions:
+        description: JSON list of PostgreSQL major versions to test against, one job each (empty list = none)
+        type: string
+        required: false
+        default: "[]"
+      coverage-threshold:
+        description: Minimum total coverage percentage for pytest --cov-fail-under
+        type: number
+        required: false
+        default: 80
+      working-directory:
+        description: Directory holding pyproject.toml and uv.lock
+        type: string
+        required: false
+        default: "."
+      playwright-browsers:
+        description: Comma-separated Playwright browsers to install with their system dependencies before pytest (empty = do not install)
+        type: string
+        required: false
+        default: ""
+      git-credentials:
+        description: Configure git to use the GIT_READ_TOKEN secret for private git dependencies before uv sync
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      GIT_READ_TOKEN:
+        description: Fine-grained token with Contents read on the private git dependencies (used when git-credentials is true)
+        required: false
+
+permissions: {}
+
+env:
+  UV_PYTHON: ${{ inputs.python-version }}
+  PIP_AUDIT_VERSION: 2.10.1
+
+jobs:
+  lint:
+    name: lint and types
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
+
+      - name: Configure git credentials for private dependencies
+        if: inputs.git-credentials
+        env:
+          GIT_READ_TOKEN: ${{ secrets.GIT_READ_TOKEN }}
+        run: |
+          if [[ -z "${GIT_READ_TOKEN}" ]]; then
+            echo "::error::git-credentials is true but the GIT_READ_TOKEN secret is empty"; exit 1
+          fi
+          git config --global "url.https://x-access-token:${GIT_READ_TOKEN}@github.com/.insteadOf" "https://github.com/"
+
+      - name: Sync the locked environment
+        run: uv sync --frozen
+
+      - name: Ruff (lint)
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff (format)
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy .
+
+  test-sqlite:
+    name: tests (sqlite)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
+
+      - name: Configure git credentials for private dependencies
+        if: inputs.git-credentials
+        env:
+          GIT_READ_TOKEN: ${{ secrets.GIT_READ_TOKEN }}
+        run: |
+          if [[ -z "${GIT_READ_TOKEN}" ]]; then
+            echo "::error::git-credentials is true but the GIT_READ_TOKEN secret is empty"; exit 1
+          fi
+          git config --global "url.https://x-access-token:${GIT_READ_TOKEN}@github.com/.insteadOf" "https://github.com/"
+
+      - name: Sync the locked environment
+        run: uv sync --frozen
+
+      - name: Install the Playwright browsers
+        if: inputs.playwright-browsers != ''
+        env:
+          BROWSERS: ${{ inputs.playwright-browsers }}
+        run: |
+          # shellcheck disable=SC2086 # the comma list becomes one argument per browser on purpose
+          uv run playwright install --with-deps ${BROWSERS//,/ }
+
+      - name: Pytest with the coverage gate
+        env:
+          COVERAGE_THRESHOLD: ${{ inputs.coverage-threshold }}
+        run: >-
+          uv run pytest --cov --cov-report=term-missing:skip-covered --cov-report=xml
+          --cov-fail-under="${COVERAGE_THRESHOLD}" --junitxml=junit.xml
+
+      - name: Upload the test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-sqlite
+          path: |
+            ${{ inputs.working-directory }}/junit.xml
+            ${{ inputs.working-directory }}/coverage.xml
+          if-no-files-found: ignore
+
+  test-postgres:
+    name: tests (postgresql ${{ matrix.postgres }})
+    if: inputs.postgres-versions != '' && inputs.postgres-versions != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ${{ fromJSON(inputs.postgres-versions || '[]') }}
+    services:
+      postgres:
+        # The major version is chosen by the caller, so the official image is tag-pinned
+        # (docs/required-checks.md, pitfalls): a digest cannot cover a matrix of versions.
+        image: docker.io/library/postgres:${{ matrix.postgres }}-alpine # zizmor: ignore[unpinned-images] version comes from the caller matrix
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci # throwaway credential of an ephemeral service container
+          POSTGRES_DB: ci_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: ci
+      PGPASSWORD: ci
+      PGDATABASE: ci_test
+      TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
+
+      - name: Configure git credentials for private dependencies
+        if: inputs.git-credentials
+        env:
+          GIT_READ_TOKEN: ${{ secrets.GIT_READ_TOKEN }}
+        run: |
+          if [[ -z "${GIT_READ_TOKEN}" ]]; then
+            echo "::error::git-credentials is true but the GIT_READ_TOKEN secret is empty"; exit 1
+          fi
+          git config --global "url.https://x-access-token:${GIT_READ_TOKEN}@github.com/.insteadOf" "https://github.com/"
+
+      - name: Sync the locked environment
+        run: uv sync --frozen
+
+      - name: Install the Playwright browsers
+        if: inputs.playwright-browsers != ''
+        env:
+          BROWSERS: ${{ inputs.playwright-browsers }}
+        run: |
+          # shellcheck disable=SC2086 # the comma list becomes one argument per browser on purpose
+          uv run playwright install --with-deps ${BROWSERS//,/ }
+
+      - name: Pytest with the coverage gate
+        env:
+          COVERAGE_THRESHOLD: ${{ inputs.coverage-threshold }}
+        run: >-
+          uv run pytest --cov --cov-report=term-missing:skip-covered --cov-report=xml
+          --cov-fail-under="${COVERAGE_THRESHOLD}" --junitxml=junit.xml
+
+      - name: Upload the test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-postgresql-${{ matrix.postgres }}
+          path: |
+            ${{ inputs.working-directory }}/junit.xml
+            ${{ inputs.working-directory }}/coverage.xml
+          if-no-files-found: ignore
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Export the lock as hashed requirements
+        run: >-
+          uv export --frozen --no-dev --no-emit-workspace --format requirements-txt
+          --output-file "${RUNNER_TEMP}/requirements.txt"
+
+      - name: pip-audit the exported lock
+        run: uvx "pip-audit==${PIP_AUDIT_VERSION}" --requirement "${RUNNER_TEMP}/requirements.txt" --require-hashes --disable-pip

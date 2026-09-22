@@ -270,9 +270,9 @@ actions by SHA, and set `concurrency` where it matters. Callers pass secrets exp
 |---|---|---|---|
 | `commits.yml` | `ai-attribution-check` (bool, default true) | | `contents: read`, `pull-requests: read` |
 | `release.yml` | | `released`, `version`, `tag` | `contents: write` |
-| `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
-| `oci-manifests.yml` | `image-name`, `image-digest`, `version`, `path` (e.g. `deploy`), `overlay`, `artifact-name`, `sign` | `artifact` | `contents: read`, `packages: write`, `id-token: write` if signing |
-| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory` | | `contents: read` |
+| `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool), `build-secrets` (multiline `id=value`, forwarded to BuildKit), `push` (bool, default true) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
+| `oci-manifests.yml` | `image-name`, `image-digest`, `version`, `path` (e.g. `deploy`), `overlay`, `artifact-name`, `crd-schema-locations`, `sign`, `push` (bool, default true) | `artifact` | `contents: read`, `packages: write`, `id-token: write` if signing |
+| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`) | | `contents: read` |
 | `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests` | | `contents: read` |
 | `kubernetes-manifests.yml` | `paths` (JSON list), `crd-schema-locations`, `check-sops` | | `contents: read` |
 | `security.yml` | | | `contents: read`, `security-events: write` (SARIF upload) |
@@ -292,15 +292,28 @@ Behaviour details:
   - image `ghcr.io/<lowercased owner>/<image-name>` (the owner or repository name may
     contain uppercase letters; OCI references must be lowercase);
   - tags `X.Y.Z`, `X.Y` and `sha-<short>`;
-  - SBOM and provenance attestations; digest exposed as output.
+  - SBOM and provenance attestations; digest exposed as output;
+  - `build-secrets`: one `id=value` per line, forwarded to `docker/build-push-action`
+    `secrets:` for `RUN --mount=type=secret,id=<id>` steps (the web-kit git token); pass a
+    secrets expression, never a literal;
+  - `push: false` builds with the same exporter without any registry write (pull request
+    builds, fixtures); the digest is still returned. `sign` needs `push`.
 - **`oci-manifests.yml`**: copies `path`, runs
   `kustomize edit set image <name>=<image>@<digest>` in `overlay`, validates with
   kubeconform, then
   `flux push artifact oci://ghcr.io/<owner>/<artifact-name>:<version> --source=<repo URL> --revision=v<version>@sha1:<sha>`.
-  Nothing is committed back.
+  Nothing is committed back. The base manifests reference the image as
+  `ghcr.io/<owner>/<image-name>` (that is the name `set image` matches). `push: false`
+  builds the artifact locally (`flux build artifact`) without any registry write.
 - **`python-uv.yml`**: `uv sync --frozen`, `ruff check`, `ruff format --check`, `mypy`,
   `pytest` with the coverage gate (SQLite, plus one job per PostgreSQL version as a service
-  container), `pip-audit` on the exported lock.
+  container, which exports `TEST_DATABASE_URL` and the libpq `PG*` variables), `pip-audit`
+  on the exported lock;
+  - `playwright-browsers`: comma list installed with `playwright install --with-deps`
+    before pytest (the project must depend on `playwright`); empty installs nothing;
+  - `git-credentials`: when true, git rewrites `https://github.com/` to use the
+    `GIT_READ_TOKEN` secret (`url.insteadOf`) before `uv sync --frozen`, for private git
+    dependencies such as web-kit; the token stays in `env:` and is never printed.
 - **`security.yml`**: gitleaks on the full history of the PR range, zizmor on
   `.github/workflows/`.
 

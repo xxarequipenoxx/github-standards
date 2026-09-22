@@ -1,0 +1,7 @@
+# actionlint 1.7.12 predates GitHub's `$/` self-repository syntax (this repository at the
+# running commit), which the reusable workflows need so that their local actions resolve in
+# this repository and not in the caller's checkout. Drop this ignore once actionlint parses it.
+paths:
+  .github/workflows/**/*.yml:
+    ignore:
+      - 'specifying action "\$/[^"]+" in invalid format because ref is missing'

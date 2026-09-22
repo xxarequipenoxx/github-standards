@@ -1,0 +1,198 @@
+name: setup-tools
+description: >-
+  Installs pinned OpenTofu, kustomize, kubeconform, flux, sops and age on a Linux runner.
+  Every download is verified against the checksum file published with the upstream
+  release (age publishes none, so its SHA-256 is pinned here) and the binaries are cached
+  per version set. Versions verified 2026-09-21 (README section 7).
+
+inputs:
+  tools:
+    description: Space-separated subset of tofu, kustomize, kubeconform, flux, sops, age to install
+    required: false
+    default: tofu kustomize kubeconform flux sops age
+  tofu-version:
+    description: OpenTofu version (without the v)
+    required: false
+    default: 1.12.6
+  kustomize-version:
+    description: kustomize version (without the v)
+    required: false
+    default: 5.8.1
+  kubeconform-version:
+    description: kubeconform version (without the v)
+    required: false
+    default: 0.8.0
+  flux-version:
+    description: flux CLI version (without the v)
+    required: false
+    default: 2.9.5
+  sops-version:
+    description: sops version (without the v)
+    required: false
+    default: 3.13.3
+  age-version:
+    description: age version (without the v); override age-sha256 together with it
+    required: false
+    default: 1.3.2
+  age-sha256:
+    description: SHA-256 of the age linux amd64 archive (age publishes no checksum file)
+    required: false
+    default: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+
+outputs:
+  bin-dir:
+    description: Directory holding the installed binaries (already on PATH)
+    value: ${{ steps.layout.outputs.bin-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute the install layout and cache key
+      id: layout
+      shell: bash
+      env:
+        TOOLS: ${{ inputs.tools }}
+        VERSIONS: tofu${{ inputs.tofu-version }}-kustomize${{ inputs.kustomize-version }}-kubeconform${{ inputs.kubeconform-version }}-flux${{ inputs.flux-version }}-sops${{ inputs.sops-version }}-age${{ inputs.age-version }}
+      run: |
+        set -euo pipefail
+        # Sorted, deduplicated, hyphen-joined: cache keys allow no commas and should be stable.
+        tools="$(tr ' ,' '\n\n' <<< "${TOOLS}" | grep -v '^$' | sort -u | paste -sd '-')"
+        for tool in ${tools//-/ }; do
+          case "${tool}" in
+            tofu | kustomize | kubeconform | flux | sops | age) ;;
+            *) echo "::error::unknown tool '${tool}' (expected tofu, kustomize, kubeconform, flux, sops, age)"; exit 1 ;;
+          esac
+        done
+        bin_dir="${RUNNER_TEMP}/github-standards-tools/bin"
+        mkdir -p "${bin_dir}"
+        {
+          echo "bin-dir=${bin_dir}"
+          echo "tools=${tools}"
+          echo "cache-key=setup-tools-v1-${RUNNER_OS}-${RUNNER_ARCH}-${tools}-${VERSIONS}"
+        } >> "${GITHUB_OUTPUT}"
+
+    - name: Restore the cached binaries
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.layout.outputs.bin-dir }}
+        key: ${{ steps.layout.outputs.cache-key }}
+
+    - name: Download and verify the tools
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        BIN_DIR: ${{ steps.layout.outputs.bin-dir }}
+        TOOLS: ${{ steps.layout.outputs.tools }}
+        TOFU_VERSION: ${{ inputs.tofu-version }}
+        KUSTOMIZE_VERSION: ${{ inputs.kustomize-version }}
+        KUBECONFORM_VERSION: ${{ inputs.kubeconform-version }}
+        FLUX_VERSION: ${{ inputs.flux-version }}
+        SOPS_VERSION: ${{ inputs.sops-version }}
+        AGE_VERSION: ${{ inputs.age-version }}
+        AGE_SHA256: ${{ inputs.age-sha256 }}
+      run: |
+        set -euo pipefail
+        case "${RUNNER_ARCH}" in
+          X64) arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "::error::unsupported runner architecture ${RUNNER_ARCH}"; exit 1 ;;
+        esac
+        if [[ "${RUNNER_OS}" != "Linux" ]]; then
+          echo "::error::setup-tools supports Linux runners only (got ${RUNNER_OS})"; exit 1
+        fi
+        work="$(mktemp -d)"
+        trap 'rm -rf "${work}"' EXIT
+
+        fetch() { # url dest
+          curl --silent --show-error --fail --location --retry 3 --output "$2" "$1"
+        }
+        # Verify a file against the checksum file published with the same release.
+        verify_from_sums() { # file sums-file asset-name
+          local expected
+          expected="$(grep -E "^[0-9a-f]{64}[[:space:]]+\*?$3\$" "$2" | awk '{print $1}' | sort -u)"
+          if [[ "$(wc -l <<< "${expected}")" -ne 1 || -z "${expected}" ]]; then
+            echo "::error::no unique checksum for $3 in $(basename "$2")"; exit 1
+          fi
+          echo "${expected}  $1" | sha256sum --check --strict --quiet
+        }
+        verify_pinned() { # file sha256
+          echo "$2  $1" | sha256sum --check --strict --quiet
+        }
+
+        for tool in ${TOOLS//-/ }; do
+          case "${tool}" in
+            tofu)
+              base="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}"
+              asset="tofu_${TOFU_VERSION}_linux_${arch}.zip"
+              fetch "${base}/${asset}" "${work}/${asset}"
+              fetch "${base}/tofu_${TOFU_VERSION}_SHA256SUMS" "${work}/tofu.sums"
+              verify_from_sums "${work}/${asset}" "${work}/tofu.sums" "${asset}"
+              unzip -oq "${work}/${asset}" tofu -d "${BIN_DIR}"
+              ;;
+            kustomize)
+              base="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}"
+              asset="kustomize_v${KUSTOMIZE_VERSION}_linux_${arch}.tar.gz"
+              fetch "${base}/${asset}" "${work}/${asset}"
+              fetch "${base}/checksums.txt" "${work}/kustomize.sums"
+              verify_from_sums "${work}/${asset}" "${work}/kustomize.sums" "${asset}"
+              tar -xzf "${work}/${asset}" -C "${BIN_DIR}" kustomize
+              ;;
+            kubeconform)
+              base="https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}"
+              asset="kubeconform-linux-${arch}.tar.gz"
+              fetch "${base}/${asset}" "${work}/${asset}"
+              fetch "${base}/CHECKSUMS" "${work}/kubeconform.sums"
+              verify_from_sums "${work}/${asset}" "${work}/kubeconform.sums" "${asset}"
+              tar -xzf "${work}/${asset}" -C "${BIN_DIR}" kubeconform
+              ;;
+            flux)
+              base="https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}"
+              asset="flux_${FLUX_VERSION}_linux_${arch}.tar.gz"
+              fetch "${base}/${asset}" "${work}/${asset}"
+              fetch "${base}/flux_${FLUX_VERSION}_checksums.txt" "${work}/flux.sums"
+              verify_from_sums "${work}/${asset}" "${work}/flux.sums" "${asset}"
+              tar -xzf "${work}/${asset}" -C "${BIN_DIR}" flux
+              ;;
+            sops)
+              base="https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}"
+              asset="sops-v${SOPS_VERSION}.linux.${arch}"
+              fetch "${base}/${asset}" "${work}/${asset}"
+              fetch "${base}/sops-v${SOPS_VERSION}.checksums.txt" "${work}/sops.sums"
+              verify_from_sums "${work}/${asset}" "${work}/sops.sums" "${asset}"
+              install -m 0755 "${work}/${asset}" "${BIN_DIR}/sops"
+              ;;
+            age)
+              if [[ "${arch}" != "amd64" ]]; then
+                echo "::error::the pinned age checksum covers linux amd64 only; pass age-sha256 for ${arch}"; exit 1
+              fi
+              base="https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}"
+              asset="age-v${AGE_VERSION}-linux-${arch}.tar.gz"
+              fetch "${base}/${asset}" "${work}/${asset}"
+              verify_pinned "${work}/${asset}" "${AGE_SHA256}"
+              tar -xzf "${work}/${asset}" --strip-components=1 -C "${BIN_DIR}" age/age age/age-keygen
+              ;;
+          esac
+          echo "installed ${tool}"
+        done
+        chmod 0755 "${BIN_DIR}"/*
+
+    - name: Expose the tools on PATH and print their versions
+      shell: bash
+      env:
+        BIN_DIR: ${{ steps.layout.outputs.bin-dir }}
+        TOOLS: ${{ steps.layout.outputs.tools }}
+      run: |
+        set -euo pipefail
+        echo "${BIN_DIR}" >> "${GITHUB_PATH}"
+        export PATH="${BIN_DIR}:${PATH}"
+        for tool in ${TOOLS//-/ }; do
+          case "${tool}" in
+            tofu) tofu version | head -1 ;;
+            kustomize) echo "kustomize $(kustomize version)" ;;
+            kubeconform) echo "kubeconform $(kubeconform -v)" ;;
+            flux) flux version --client ;;
+            sops) sops --version 2>/dev/null | head -1 ;;
+            age) echo "age $(age --version)" ;;
+          esac
+        done

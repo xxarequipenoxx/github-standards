@@ -1,0 +1,82 @@
+name: opentofu
+
+# Reusable: static checks of an OpenTofu root module or module directory: tofu fmt -check,
+# tofu validate (init without backend), tofu test when run-tests is true, tflint.
+# Nothing is planned or applied.
+#
+# Status check name: <caller job id> / opentofu
+# Caller permissions: contents: read
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory holding the OpenTofu configuration
+        type: string
+        required: false
+        default: "."
+      tofu-version:
+        description: OpenTofu version (without the v)
+        type: string
+        required: false
+        default: 1.12.6
+      run-tests:
+        description: Run tofu test (needs the providers the tests use, mocked or real)
+        type: boolean
+        required: false
+        default: true
+
+permissions: {}
+
+env:
+  TFLINT_VERSION: v0.64.0
+
+jobs:
+  check:
+    name: opentofu
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install OpenTofu
+        uses: $/actions/setup-tools
+        with:
+          tools: tofu
+          tofu-version: ${{ inputs.tofu-version }}
+
+      - name: tofu fmt
+        run: tofu fmt -check -recursive -diff
+
+      - name: tofu init (no backend)
+        run: tofu init -backend=false
+
+      - name: tofu validate
+        run: tofu validate
+
+      - name: tofu test
+        if: inputs.run-tests
+        run: tofu test
+
+      - name: Install tflint
+        uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+          tflint_wrapper: false
+
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # plugin downloads declared in .tflint.hcl, avoids API rate limits
+        run: |
+          tflint --init
+          tflint --format compact --recursive

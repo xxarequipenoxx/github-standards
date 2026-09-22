@@ -1,0 +1,107 @@
+name: kubernetes-manifests
+
+# Reusable: render each kustomize path and validate the output with kubeconform -strict
+# (default schemas plus the CRD schema locations given), and check that every *.sops.yaml
+# file in the repository is SOPS-encrypted (sops filestatus), so a plaintext secret can
+# never reach main.
+#
+# Status check names: <caller job id> / kustomize and kubeconform, <caller job id> / sops encrypted
+# Caller permissions: contents: read
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: JSON list of kustomize directories to build and validate
+        type: string
+        required: true
+      crd-schema-locations:
+        description: Extra kubeconform -schema-location values for CRDs, one per line
+        type: string
+        required: false
+        default: ""
+      check-sops:
+        description: Fail when a *.sops.yaml file is not encrypted
+        type: boolean
+        required: false
+        default: true
+
+permissions: {}
+
+jobs:
+  validate:
+    name: kustomize and kubeconform
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install kustomize and kubeconform
+        uses: $/actions/setup-tools
+        with:
+          tools: kustomize kubeconform
+
+      - name: Build each path and validate it
+        env:
+          PATHS: ${{ inputs.paths }}
+          CRD_SCHEMA_LOCATIONS: ${{ inputs.crd-schema-locations }}
+        run: |
+          schema_opts=(-schema-location default)
+          while IFS= read -r location; do
+            [[ -n "${location}" ]] && schema_opts+=(-schema-location "${location}")
+          done <<< "${CRD_SCHEMA_LOCATIONS}"
+          mapfile -t paths < <(jq -r '.[]' <<< "${PATHS}")
+          if [[ "${#paths[@]}" -eq 0 ]]; then
+            echo "::error::paths is empty"; exit 1
+          fi
+          failed=0
+          for path in "${paths[@]}"; do
+            echo "::group::${path}"
+            if [[ ! -f "${path}/kustomization.yaml" && ! -f "${path}/kustomization.yml" && ! -f "${path}/Kustomization" ]]; then
+              echo "::error::${path} has no kustomization file"; failed=1; echo "::endgroup::"; continue
+            fi
+            # SOPS-encrypted Secrets carry a `sops` metadata block that strict validation rejects;
+            # the sops job checks those files instead.
+            if ! kustomize build "${path}" | kubeconform -strict -summary -skip Secret "${schema_opts[@]}"; then
+              echo "::error::${path} failed validation"; failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "${failed}"
+
+  sops:
+    name: sops encrypted
+    if: inputs.check-sops
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install sops
+        uses: $/actions/setup-tools
+        with:
+          tools: sops
+
+      - name: Check that every *.sops.yaml file is encrypted
+        run: |
+          mapfile -t files < <(git ls-files -z -- '*.sops.yaml' '*.sops.yml' '*.sops.json' | tr '\0' '\n')
+          if [[ "${#files[@]}" -eq 0 ]]; then
+            echo "No *.sops.* files to check"; exit 0
+          fi
+          failed=0
+          for file in "${files[@]}"; do
+            if [[ "$(sops filestatus "${file}" | jq -r '.encrypted')" == "true" ]]; then
+              echo "encrypted: ${file}"
+            else
+              echo "::error file=${file}::${file} is not SOPS-encrypted"; failed=1
+            fi
+          done
+          exit "${failed}"

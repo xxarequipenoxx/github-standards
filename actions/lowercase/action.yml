@@ -1,0 +1,25 @@
+name: lowercase
+description: >-
+  Lowercases a string (typically the repository owner or name) for OCI references,
+  which must be lowercase while GitHub owners and repositories may not be.
+
+inputs:
+  value:
+    description: The string to lowercase (defaults to the repository owner)
+    required: false
+    default: ${{ github.repository_owner }}
+
+outputs:
+  value:
+    description: The lowercased string
+    value: ${{ steps.lower.outputs.value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Lowercase the value
+      id: lower
+      shell: bash
+      env:
+        VALUE: ${{ inputs.value }}
+      run: echo "value=${VALUE,,}" >> "${GITHUB_OUTPUT}"

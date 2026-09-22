@@ -65,3 +65,57 @@ jobs:
     permissions:
       contents: read
       security-events: write # caller contract of security.yml (README section 7)
+
+  # S2 fixtures (tests/fixtures): every language, container and manifest workflow runs on a
+  # minimal project of its own. Nothing is pushed to a registry: push is false and the
+  # container digest chains into the manifests fixture.
+  python:
+    uses: ./.github/workflows/python-uv.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+    with:
+      working-directory: tests/fixtures/python-uv
+      postgres-versions: '["17"]'
+      coverage-threshold: 70 # the PostgreSQL branch is uncovered on SQLite
+
+  container:
+    uses: ./.github/workflows/container.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+      packages: write # caller contract of container.yml even with push false (README section 7)
+    with:
+      image-name: fixture-container
+      version: 0.0.0
+      context: tests/fixtures/container
+      dockerfile: tests/fixtures/container/Dockerfile
+      push: false
+      build-secrets: fixture_token=fixture-placeholder-value # exercises the BuildKit secret mount, not a credential
+
+  manifests:
+    needs: container
+    uses: ./.github/workflows/oci-manifests.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+      packages: write # caller contract of oci-manifests.yml even with push false (README section 7)
+    with:
+      image-name: fixture-container
+      image-digest: ${{ needs.container.outputs.digest }}
+      version: 0.0.0
+      path: tests/fixtures/kustomize
+      overlay: overlays/ci
+      artifact-name: fixture-deploy
+      push: false
+
+  opentofu:
+    uses: ./.github/workflows/opentofu.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+    with:
+      working-directory: tests/fixtures/opentofu
+
+  kubernetes:
+    uses: ./.github/workflows/kubernetes-manifests.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+    with:
+      paths: '["tests/fixtures/kustomize/overlays/ci"]'

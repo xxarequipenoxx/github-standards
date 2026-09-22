@@ -40,9 +40,27 @@ half if a project uses different job ids.
 | `security.yml` | `gitleaks` | `security` | `security / gitleaks` |
 | `security.yml` | `zizmor` | `security` | `security / zizmor` |
 | `release.yml` | `release` | `version` | `version / release` |
+| `python-uv.yml` | `lint and types` | `python` | `python / lint and types` |
+| `python-uv.yml` | `tests (sqlite)` | `python` | `python / tests (sqlite)` |
+| `python-uv.yml` | `tests (postgresql <version>)`, one per entry of `postgres-versions` | `python` | `python / tests (postgresql 16)` |
+| `python-uv.yml` | `dependency audit` | `python` | `python / dependency audit` |
+| `container.yml` | `container build` | `image` | `image / container build` |
+| `container.yml` | `container sign` (only when `sign` and `push` are true) | `image` | `image / container sign` |
+| `oci-manifests.yml` | `oci manifests` | `manifests` | `manifests / oci manifests` |
+| `oci-manifests.yml` | `oci manifests sign` (only when `sign` and `push` are true) | `manifests` | `manifests / oci manifests sign` |
+| `opentofu.yml` | `opentofu` | `opentofu` | `opentofu / opentofu` |
+| `kubernetes-manifests.yml` | `kustomize and kubeconform` | `manifests` | `manifests / kustomize and kubeconform` |
+| `kubernetes-manifests.yml` | `sops encrypted` (only when `check-sops` is true) | `manifests` | `manifests / sops encrypted` |
 
-`release.yml` runs on `push` to `main`, so its check is never a pull request requirement; it
-is listed for completeness.
+`release.yml`, `container.yml` and `oci-manifests.yml` run on `push` to `main` in the README
+examples, so their checks are never pull request requirements; they are listed for
+completeness. A project that builds its image on pull requests too (`push: false`) gets
+`image / container build` as a requirable check.
+
+The PostgreSQL job name carries the version: adding or removing a version in
+`postgres-versions` changes the set of check names, so update `required_checks` in the same
+change. The conditional jobs (`container sign`, `oci manifests sign`, `sops encrypted`) are
+skipped, not absent, when their input is false; a skipped required check counts as passed.
 
 ---
 
@@ -57,9 +75,19 @@ locally, which gives the fixture coverage the README asks for.
 | `self-ci.yml` | `commits` (calls `commits.yml`) | `commits / conventional commits` |
 | `self-ci.yml` | `security` (calls `security.yml`) | `security / gitleaks` |
 | `self-ci.yml` | `security` (calls `security.yml`) | `security / zizmor` |
+| `self-ci.yml` | `python` (calls `python-uv.yml` on `tests/fixtures/python-uv`) | `python / lint and types` |
+| `self-ci.yml` | `python` (calls `python-uv.yml` on `tests/fixtures/python-uv`) | `python / tests (sqlite)` |
+| `self-ci.yml` | `python` (calls `python-uv.yml` on `tests/fixtures/python-uv`) | `python / tests (postgresql 17)` |
+| `self-ci.yml` | `python` (calls `python-uv.yml` on `tests/fixtures/python-uv`) | `python / dependency audit` |
+| `self-ci.yml` | `container` (calls `container.yml` on `tests/fixtures/container`, no push) | `container / container build` |
+| `self-ci.yml` | `manifests` (calls `oci-manifests.yml` on `tests/fixtures/kustomize`, no push) | `manifests / oci manifests` |
+| `self-ci.yml` | `opentofu` (calls `opentofu.yml` on `tests/fixtures/opentofu`) | `opentofu / opentofu` |
+| `self-ci.yml` | `kubernetes` (calls `kubernetes-manifests.yml` on `tests/fixtures/kustomize`) | `kubernetes / kustomize and kubeconform` |
+| `self-ci.yml` | `kubernetes` (calls `kubernetes-manifests.yml` on `tests/fixtures/kustomize`) | `kubernetes / sops encrypted` |
 
-These four names are the `required_checks` value for `github-standards` in `terraform/`
-(milestone S3).
+These names are the `required_checks` value for `github-standards` in `terraform/`
+(milestone S3). The `container sign` and `oci manifests sign` jobs are skipped in the
+fixtures (no push, no signing) and are not listed.
 
 ---
 

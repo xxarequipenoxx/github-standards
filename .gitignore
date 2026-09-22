@@ -7,3 +7,13 @@
 .cursor/
 .aider*
 # <<< ai-agentic-setup managed (AI assistant local config) <<<
+
+# Fixture build outputs (tests/fixtures)
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+junit.xml
+.terraform/
