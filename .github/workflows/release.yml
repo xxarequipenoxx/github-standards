@@ -1,0 +1,103 @@
+name: release
+
+# Reusable: compute the next SemVer from the Conventional Commits since the last tag,
+# create and push the annotated tag with GITHUB_TOKEN, publish the GitHub release with the
+# commitizen changelog section. The version lives in Git tags only (commitizen "scm"
+# provider): nothing is committed back to main, so the branch ruleset needs no bypass.
+#
+# A tag pushed with GITHUB_TOKEN does not trigger other workflows: downstream jobs (image,
+# manifests) chain on the `released` output in the caller instead.
+#
+# Status check name: <caller job id> / release
+# Caller permissions: contents: write
+
+on:
+  workflow_call:
+    outputs:
+      released:
+        description: "'true' when a new version was tagged and released, 'false' otherwise"
+        value: ${{ jobs.version.outputs.released }}
+      version:
+        description: The released version without the leading v (empty when not released)
+        value: ${{ jobs.version.outputs.version }}
+      tag:
+        description: The released tag, vX.Y.Z (empty when not released)
+        value: ${{ jobs.version.outputs.tag }}
+
+permissions: {}
+
+jobs:
+  version:
+    name: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the release tag and create the GitHub release
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      COMMITIZEN_VERSION: 4.18.0
+    outputs:
+      released: ${{ steps.next.outputs.released }}
+      version: ${{ steps.next.outputs.version }}
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      # The token stays in the checkout on purpose: this job pushes the release tag.
+      - name: Check out with full history and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 zizmor: ignore[artipacked]
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Compute the next version from the conventional commits
+        id: next
+        run: |
+          set +e
+          version="$(uvx --from "commitizen==${COMMITIZEN_VERSION}" cz bump --get-next --yes)"
+          code=$?
+          set -e
+          case "${code}" in
+            0)
+              ;;
+            21 | 3)
+              # 21 = no commit eligible for a bump (docs, chore, ci...), 3 = no new commit
+              echo "Nothing to release (commitizen exit code ${code})."
+              echo "released=false" >> "${GITHUB_OUTPUT}"
+              exit 0
+              ;;
+            *)
+              echo "::error::cz bump failed with exit code ${code}"
+              exit "${code}"
+              ;;
+          esac
+          echo "Next version: ${version}"
+          {
+            echo "released=true"
+            echo "version=${version}"
+            echo "tag=v${version}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create and push the annotated tag
+        if: steps.next.outputs.released == 'true'
+        env:
+          TAG: ${{ steps.next.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --annotate "${TAG}" --message "${TAG}"
+          git push origin "refs/tags/${TAG}"
+
+      - name: Publish the GitHub release with the changelog section
+        if: steps.next.outputs.released == 'true'
+        env:
+          TAG: ${{ steps.next.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uvx --from "commitizen==${COMMITIZEN_VERSION}" cz changelog --dry-run "${TAG}" \
+            | awk '/^## /{n++} n<2' > "${RUNNER_TEMP}/notes.md"
+          gh release create "${TAG}" --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"

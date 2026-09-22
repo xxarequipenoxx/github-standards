@@ -1,0 +1,91 @@
+name: commits
+
+# Reusable: Conventional Commits check on the pull request commits and title, plus the
+# no-AI-attribution check on commit messages and the pull request body. With squash merges
+# the title becomes the commit on main and the body its message, so both are checked.
+#
+# Status check name: <caller job id> / conventional commits
+# Caller permissions: contents: read, pull-requests: read
+
+on:
+  workflow_call:
+    inputs:
+      ai-attribution-check:
+        description: Fail on AI attribution trailers or footers in commit messages and the pull request body
+        type: boolean
+        required: false
+        default: true
+
+permissions: {}
+
+jobs:
+  check:
+    name: conventional commits
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      COMMITIZEN_VERSION: 4.18.0
+    steps:
+      - name: Check out the pull request head with full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Check the branch commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: uvx --from "commitizen==${COMMITIZEN_VERSION}" cz check --rev-range "${BASE_SHA}..${HEAD_SHA}"
+
+      - name: Check the pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: uvx --from "commitizen==${COMMITIZEN_VERSION}" cz check --message "${PR_TITLE}"
+
+      - name: Check for AI attribution in commit messages and the pull request body
+        if: inputs.ai-attribution-check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: python
+        run: |
+          import os
+          import re
+          import subprocess
+          import sys
+
+          PATTERNS = [
+              re.compile(r"(?i)^co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai|codex|gemini)"),
+              re.compile(r"(?i)generated (with|by) .*(claude|copilot|chatgpt|codex|gemini)"),
+          ]
+
+          def offending_lines(text):
+              return [line for line in text.splitlines() if any(p.search(line) for p in PATTERNS)]
+
+          rev_range = f"{os.environ['BASE_SHA']}..{os.environ['HEAD_SHA']}"
+          commits = subprocess.run(
+              ["git", "rev-list", rev_range], check=True, capture_output=True, text=True
+          ).stdout.split()
+
+          failures = []
+          for sha in commits:
+              message = subprocess.run(
+                  ["git", "log", "-1", "--format=%B", sha], check=True, capture_output=True, text=True
+              ).stdout
+              failures += [f"commit {sha[:12]}: {line}" for line in offending_lines(message)]
+          failures += [f"pull request body: {line}" for line in offending_lines(os.environ.get("PR_BODY", ""))]
+
+          if failures:
+              for failure in failures:
+                  print(f"::error::AI attribution found in {failure}")
+              sys.exit(1)
+          print(f"No AI attribution in {len(commits)} commit(s) and the pull request body.")

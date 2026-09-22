@@ -1,0 +1,21 @@
+name: self-release
+
+# Releases this repository with its own reusable release workflow: every push to main
+# (a squash merge) computes the next version from the conventional commits and, when one
+# is due, tags it and publishes the GitHub release.
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    uses: ./.github/workflows/release.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: write # release.yml pushes the tag and creates the release

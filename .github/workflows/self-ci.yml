@@ -52,3 +52,16 @@ jobs:
           # reported as annotations and fail the job instead of going to the security tab.
           advanced-security: false
           annotations: true
+
+  # Fixture coverage: the repository's own pull requests run the reusable workflows.
+  commits:
+    uses: ./.github/workflows/commits.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+      pull-requests: read # caller contract of commits.yml (README section 7)
+
+  security:
+    uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+      security-events: write # caller contract of security.yml (README section 7)
