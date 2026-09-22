@@ -1,41 +1,22 @@
----
-title: Required Status Checks - Names Produced by the Reusable Workflows
-author: TI TECH HC Cloud Native
-date: 22/09/2026
-topic: automation
-service:
-- github
-- gitops
-tags:
-- github-actions
-- rulesets
-- reusable-workflows
-- required-checks
+# Required status checks
+
+How GitHub names the status checks produced by the reusable workflows of this repository,
+which names each workflow produces, and how to collect the real names from a pull request
+before making them required in the `main-protection` ruleset (README, section 5).
+
 ---
 
-<h1>Required Status Checks - Names Produced by the Reusable Workflows</h1>
-
-<h2>Table of Contents</h2>
-
-[[_TOC_]]
-
-## Overview
-
-The `main-protection` ruleset (README, section 5) requires status checks by name. This page
-explains how GitHub forms the name of a check produced by a reusable workflow, lists the
-names each workflow of this repository produces, and gives the procedure to collect the real
-names from a pull request before making them required.
-
-This document is read on GitHub, so its diagram uses the fenced Mermaid block on purpose.
-
-## Context
+## 1. How a check name is formed
 
 A caller workflow in a project (for example `pr.yml`) declares a job whose `uses:` points at
 a reusable workflow of this repository. GitHub reports one status check per job of the
-reusable workflow, and its name is composed from both sides:
+reusable workflow, named from both sides:
 
 ```text
 <caller job id> / <reusable job name>
+
+caller pr.yml, job id "commits"  --uses-->  commits.yml, job name "conventional commits"
+                                  --reports-->  status check "commits / conventional commits"
 ```
 
 - `<caller job id>` is the key of the job in the caller workflow (`commits:`, `security:`).
@@ -46,17 +27,9 @@ The caller decides the first half, so two projects calling the same workflow und
 job ids produce different check names. Names must be unique inside one repository: an
 ambiguous required check blocks every merge.
 
-```mermaid
-graph LR
-  A[caller pr.yml<br/>job id: commits] -->|uses| B[commits.yml<br/>job name: conventional commits]
-  B -->|reports| C[status check<br/>commits / conventional commits]
-```
+---
 
-A caller job id and a reusable job name combine into one status check name.
-
-## Technical View
-
-### Names produced by each reusable workflow
+## 2. Names produced by each reusable workflow
 
 The table assumes the caller job ids of the README examples (section 8). Replace the first
 half if a project uses different job ids.
@@ -71,7 +44,9 @@ half if a project uses different job ids.
 `release.yml` runs on `push` to `main`, so its check is never a pull request requirement; it
 is listed for completeness.
 
-### Names produced in this repository
+---
+
+## 3. Names produced in this repository
 
 `self-ci.yml` runs on every pull request of this repository and calls the reusable workflows
 locally, which gives the fixture coverage the README asks for.
@@ -86,7 +61,9 @@ locally, which gives the fixture coverage the README asks for.
 These four names are the `required_checks` value for `github-standards` in `terraform/`
 (milestone S3).
 
-### Collecting the names from a real pull request
+---
+
+## 4. Collecting the names from a real pull request
 
 Read the names as GitHub reports them instead of deriving them by hand, then set
 `required_checks` and switch the ruleset to `active` (README, section 9).
@@ -96,27 +73,18 @@ gh pr checks <number> --repo <owner>/<repository>
 gh api "repos/<owner>/<repository>/commits/<head sha>/check-runs" --jq '.check_runs[].name'
 ```
 
-## Risks and Limitations
+---
 
-| Risk | Impact | Mitigation |
+## 5. Pitfalls
+
+| Pitfall | Impact | Mitigation |
 |---|---|---|
-| Renaming a job in a reusable workflow | Every consumer's required check stops reporting and blocks merges | Treat a job `name:` as part of the public contract; a rename is a breaking change of the reusable workflow |
+| Renaming a job in a reusable workflow | Every consumer's required check stops reporting and blocks merges | A job `name:` is part of the public contract; renaming it is a breaking change |
 | Two caller jobs with the same id in one repository | Ambiguous required check | Job ids are unique per workflow file, but keep them unique across files too |
 | A required check that never runs (path filter, skipped job) | The pull request cannot be merged | Do not path-filter the workflows that produce required checks; roll out with the ruleset in `disabled` mode first |
 | Check names contain spaces | Copy errors in `required_checks` | Copy the names from `gh pr checks` output |
 
-## Best Practices
-
-- Set the job `name:` explicitly in every reusable workflow; never rely on the job id.
-- Keep caller job ids identical across projects (`commits`, `security`, `version`) so the
-  `required_checks` lists stay identical too.
-- Follow the README order for adoption: callers merged with the ruleset `disabled`, names
-  read from a pull request, `required_checks` set, ruleset switched to `active`.
-
-## Appendix
-
-### Revision History
-
-| Version | Date | Author | Changes |
-|---|---|---|---|
-| 1.0 | 2026-09-22 | Manuel Carrillo | Initial version (milestone S1) |
+Rules of thumb: set the job `name:` explicitly in every reusable workflow, keep caller job
+ids identical across projects (`commits`, `security`, `version`) so the `required_checks`
+lists stay identical too, and follow the README adoption order: callers merged with the
+ruleset `disabled`, names read from a pull request, `required_checks` set, ruleset `active`.
