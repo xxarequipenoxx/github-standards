@@ -124,12 +124,16 @@ annotated_tag = true
   what gets checked and what drives the bump. Branch commits are checked too, but only as
   hygiene.
 - Release flow (reusable `release.yml`):
-  1. `cz bump --get-next --yes`; exit code 21 (nothing eligible) or 3 (no new commit) means
-     no release, and the job succeeds with `released=false`;
-  2. otherwise it creates the annotated tag `vX.Y.Z` with the `GITHUB_TOKEN` and pushes it;
-  3. it creates the GitHub release, whose notes are the first section of
+  1. recovery first: if `HEAD` already carries a `v*` tag without a GitHub release (a
+     previous run failed after pushing the tag), the job publishes that release and skips
+     steps 2 and 3; with the release present it succeeds with `released=false`;
+  2. `cz bump --get-next --yes`; exit code 21 (nothing eligible) or 3 (no new commit), or a
+     next version equal to the current one, means no release, and the job succeeds with
+     `released=false`;
+  3. otherwise it creates the annotated tag `vX.Y.Z` with the `GITHUB_TOKEN` and pushes it;
+  4. it creates the GitHub release, whose notes are the first section of
      `cz changelog --dry-run vX.Y.Z`;
-  4. outputs: `released`, `version` (without the `v`), `tag`.
+  5. outputs: `released`, `version` (without the `v`), `tag`.
   Downstream jobs (image, manifests) run only if `released == 'true'`.
 
 Scopes: free-form but consistent within a project (the package or directory name). A
@@ -284,10 +288,10 @@ Behaviour details:
   - `cz check --rev-range <base>..<head>` on the branch commits and `cz check --message`
     on the PR title, both passed through `env:` (never interpolated into the script:
     injection risk);
-  - AI-attribution check on commit messages and on the PR body: fails on lines matching
+  - AI-attribution check on commit messages, the PR title and the PR body: fails on lines matching
     `(?i)^co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai|codex|gemini)` or
-    `(?i)generated (with|by) .*(claude|copilot|chatgpt|codex|gemini)`. The PR body becomes
-    the squash commit message, so it must be clean too.
+    `(?i)generated (with|by) .*(claude|copilot|chatgpt|codex|gemini)`. The PR title and body
+    become the squash commit subject and message, so both must be clean too.
 - **`container.yml`**:
   - image `ghcr.io/<lowercased owner>/<image-name>` (the owner or repository name may
     contain uppercase letters; OCI references must be lowercase);

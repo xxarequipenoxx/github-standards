@@ -56,7 +56,30 @@ jobs:
 
       - name: Compute the next version from the conventional commits
         id: next
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Recovery: a previous run pushed the tag of this commit but failed before the
+          # release was published. cz would now exit 3 (no new commit) and skip it forever.
+          # released=true lets the caller's downstream jobs (image, manifests) complete too.
+          existing="$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n 1)"
+          if [[ -n "${existing}" ]]; then
+            if gh release view "${existing}" > /dev/null 2>&1; then
+              echo "HEAD is already released as ${existing}."
+              echo "released=false" >> "${GITHUB_OUTPUT}"
+            else
+              echo "HEAD is tagged ${existing} without a release: publishing it."
+              {
+                echo "released=true"
+                echo "tag_exists=true"
+                echo "version=${existing#v}"
+                echo "tag=${existing}"
+              } >> "${GITHUB_OUTPUT}"
+            fi
+            exit 0
+          fi
+
+          current="$(uvx --from "commitizen==${COMMITIZEN_VERSION}" cz version --project)"
           set +e
           version="$(uvx --from "commitizen==${COMMITIZEN_VERSION}" cz bump --get-next --yes)"
           code=$?
@@ -75,7 +98,14 @@ jobs:
               exit "${code}"
               ;;
           esac
-          echo "Next version: ${version}"
+          # cz can return the current version with exit 0 when no commit is bump-eligible
+          # (seen after a tag_format migration); that must not re-release the same version.
+          if [[ "${version}" == "${current}" ]]; then
+            echo "Nothing to release (next version ${version} equals the current one)."
+            echo "released=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "Next version: ${version} (current ${current})"
           {
             echo "released=true"
             echo "version=${version}"
@@ -83,7 +113,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Create and push the annotated tag
-        if: steps.next.outputs.released == 'true'
+        if: steps.next.outputs.released == 'true' && steps.next.outputs.tag_exists != 'true'
         env:
           TAG: ${{ steps.next.outputs.tag }}
         run: |
