@@ -96,7 +96,7 @@ tokens) with:
 | Setting | Value |
 |---|---|
 | Resource owner | the account that owns the repositories |
-| Repository access | Only select repositories: the five managed repositories (see below for creation) |
+| Repository access | Only select repositories: the six managed repositories (see below for creation) |
 | Administration | Read and write: repository settings, rulesets, environments and deployment branch policies, Dependabot alerts and security updates, Actions access level, repository creation from a template |
 | Contents | Read: the provider reads the repository and its default branch |
 | Metadata | Read (added automatically) |
@@ -129,8 +129,8 @@ Two traps:
 
 ## 4. First run: init and import the existing repositories
 
-All five repositories already exist on GitHub. **Import them before the first apply**:
-without the imports the plan tries to create five repositories with the same names, the API
+All six repositories already exist on GitHub. **Import them before the first apply**:
+without the imports the plan tries to create six repositories with the same names, the API
 refuses (`name already exists on this account`) and the apply fails half-way. Every import
 is a read: nothing changes on GitHub.
 
@@ -147,11 +147,13 @@ cd terraform
   tofu import module.web_kit.github_repository.this web-kit
   tofu import module.kubernetes_infra.github_repository.this kubernetes-infra
   tofu import module.onibat.github_repository.this Onibat
+  tofu import module.ai_agentic_setup.github_repository.this ai-agentic-setup
 
   # Settings that already exist on every repository (their create is an idempotent PUT, so
   # importing is optional; it makes the first plan show the real diff instead of a create).
   for m in github_standards:github-standards repo_template:repo-template web_kit:web-kit \
-           kubernetes_infra:kubernetes-infra onibat:Onibat; do
+           kubernetes_infra:kubernetes-infra onibat:Onibat \
+           ai_agentic_setup:ai-agentic-setup; do
     tofu import "module.${m%%:*}.github_repository_vulnerability_alerts.this" "${m##*:}"
     tofu import "module.${m%%:*}.github_repository_dependabot_security_updates.this" "${m##*:}"
     tofu import "module.${m%%:*}.github_actions_repository_access_level.this[0]" "${m##*:}"
@@ -159,8 +161,8 @@ cd terraform
 )
 ```
 
-Checked on 2026-09-22 (read-only API calls): none of the five repositories has a ruleset or
-a deployment environment, so there is nothing else to import; the two rulesets of each
+Checked on 2026-09-22 for the first five and on 2026-09-28 for ai-agentic-setup (read-only
+API calls): none of the six repositories has a ruleset or a deployment environment, so there is nothing else to import; the two rulesets of each
 repository are created by the first apply. Should a ruleset appear before then (created in
 the UI), import it instead of letting the plan create a duplicate:
 
@@ -194,7 +196,7 @@ cd terraform
 
 What to look for, in this order:
 
-1. **No `github_repository` is created or replaced.** Five `update in-place` at most. A
+1. **No `github_repository` is created or replaced.** Six `update in-place` at most. A
    create means an import is missing; a replace is blocked by `prevent_destroy` and points at
    a ForceNew attribute (`template`): fix the configuration, do not remove the guard.
 2. The repository updates are the expected ones: merge commits and rebase merges off,
@@ -232,7 +234,7 @@ Doing it in this order avoids a required check that never reports and blocks eve
 request. Emergency switch: set `enforcement = "disabled"` through a pull request, never in
 the UI, so Git stays the source of truth.
 
-Current state of the five repositories in `repositories.tf`:
+Current state of the six repositories in `repositories.tf`:
 
 | Module | Repository | `required_checks` | `enforcement` |
 |---|---|---|---|
@@ -241,6 +243,7 @@ Current state of the five repositories in `repositories.tf`:
 | `web_kit` | web-kit | none yet | disabled |
 | `kubernetes_infra` | kubernetes-infra | none yet (callers land in S5) | disabled |
 | `onibat` | Onibat | the nine jobs of its current `pr.yml` | disabled |
+| `ai_agentic_setup` | ai-agentic-setup | the four jobs of its `pr.yml` (reported on its PR #1) | disabled |
 
 ---
 
@@ -263,4 +266,4 @@ tflint --init && tflint --format compact --recursive
 `prevent_destroy` present), plus enforcement disabled by default, `required_checks` rendered
 into the ruleset, the Actions access level and Dependabot resources, the template block,
 environments with reviewers and patterns, the variable validations, and the root wiring
-(five repositories, all disabled).
+(six repositories, all disabled).

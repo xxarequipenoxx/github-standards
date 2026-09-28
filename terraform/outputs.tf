@@ -7,6 +7,7 @@ output "repositories" {
       web_kit          = module.web_kit
       kubernetes_infra = module.kubernetes_infra
       onibat           = module.onibat
+      ai_agentic_setup = module.ai_agentic_setup
       } : name => {
       full_name       = repository.full_name
       enforcement     = repository.enforcement

@@ -193,7 +193,8 @@ reusable workflow.
   `required_checks` (list), `enforcement` (`active`/`disabled`),
   `environments` (name, required reviewers, deployment branch policy),
   `actions_access_level` (`none` by default, `user` for `github-standards`).
-- `repositories.tf`: `github-standards`, `repo-template`, `kubernetes-infra`, `onibat`
+- `repositories.tf`: `github-standards`, `repo-template`, `web-kit`, `kubernetes-infra`, `onibat`,
+  `ai-agentic-setup`
   (the existing repository is named `Onibat`: import it with `tofu import`, do not recreate it).
 - Tests (`tofu test`, mocked provider): squash-only settings, `required_approving_review_count == 0`,
   tag ruleset does not restrict creation, `prevent_destroy` present.

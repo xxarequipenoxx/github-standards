@@ -1,4 +1,4 @@
-# The root configuration wires the five repositories; this checks the wiring, mocked.
+# The root configuration wires the six repositories; this checks the wiring, mocked.
 
 mock_provider "github" {}
 
@@ -11,12 +11,12 @@ run "every_repository_starts_disabled" {
   }
 
   assert {
-    condition     = length(output.repositories) == 5
-    error_message = "five repositories are managed: github-standards, repo-template, web-kit, kubernetes-infra, Onibat"
+    condition     = length(output.repositories) == 6
+    error_message = "six repositories are managed: github-standards, repo-template, web-kit, kubernetes-infra, Onibat, ai-agentic-setup"
   }
 
   assert {
-    condition     = length(output.repositories.github_standards.required_checks) == 14 && length(output.repositories.onibat.required_checks) == 9
-    error_message = "github-standards requires every self-ci check and Onibat its nine pr.yml jobs"
+    condition     = length(output.repositories.github_standards.required_checks) == 14 && length(output.repositories.onibat.required_checks) == 9 && length(output.repositories.ai_agentic_setup.required_checks) == 4
+    error_message = "github-standards requires every self-ci check Onibat its nine pr.yml jobs, ai-agentic-setup its four"
   }
 }
