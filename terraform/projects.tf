@@ -60,7 +60,7 @@ module "projects" {
 # of creating. An import of a resource already in state is a no-op. tofu test cannot import
 # through a mocked provider, so the root test sets import_projects = false.
 import {
-  for_each = var.import_projects ? local.projects : {}
+  for_each = { for name, p in local.projects : name => p if var.import_projects }
   to       = module.projects[each.key].github_repository.this
   id       = each.key
 }
