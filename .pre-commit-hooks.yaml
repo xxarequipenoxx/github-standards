@@ -1,0 +1,16 @@
+# Shared pre-commit hooks (README section 10). Consumers reference this repository with a
+# release tag as rev; pre-commit clones it with the local Git credentials. CI does not rely
+# on these hooks: commits.yml and kubernetes-manifests.yml perform the same checks.
+- id: no-ai-attribution
+  name: no AI attribution in the commit message
+  description: Fails on Co-Authored-By trailers naming an AI vendor and on "generated with" footers
+  entry: hooks/no-ai-attribution.sh
+  language: script
+  stages: [commit-msg]
+
+- id: sops-encrypted
+  name: sops files are encrypted
+  description: Fails when a *.sops.yaml or *.sops.yml file is not encrypted with sops
+  entry: hooks/sops-encrypted.sh
+  language: script
+  files: '\.sops\.ya?ml$'
