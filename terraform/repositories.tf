@@ -22,6 +22,7 @@ locals {
     "kubernetes / kustomize and kubeconform",
     "kubernetes / sops encrypted",
     "terraform / opentofu",
+    "hook tests",
   ]
 
   # The nine jobs of the current Onibat pr.yml (local jobs, so the check name is the job

@@ -71,9 +71,11 @@ github-standards/
 │   ├── no-ai-attribution.sh        # commit-msg stage
 │   └── sops-encrypted.sh           # fails if a *.sops.yaml file is not encrypted
 ├── renovate/default.json           # shared Renovate preset
+├── scripts/new-repo.sh             # make new-repo: create a project from repo-template (section 6)
 ├── terraform/                      # repositories as code (section 6)
 │   ├── modules/repository/         # settings + rulesets + environments for one repository
 │   ├── repositories.tf             # one module call per repository
+│   ├── projects.tf                 # projects created by new-repo.sh, one map entry each
 │   └── tests/                      # tofu test with a mocked provider
 └── docs/
     ├── adopting.md                 # how to move an existing repository to the standards
@@ -196,6 +198,12 @@ reusable workflow.
 - `repositories.tf`: `github-standards`, `repo-template`, `web-kit`, `kubernetes-infra`, `onibat`,
   `ai-agentic-setup`
   (the existing repository is named `Onibat`: import it with `tofu import`, do not recreate it).
+- New projects: `make new-repo NAME=<name>` asks only public or private, creates the
+  repository from `repo-template` with `gh repo create --template`, and opens a pull request
+  here adding it to the `projects` map of `terraform/projects.tf`. An `import` block makes
+  the next reviewed apply adopt it (settings, rulesets with the template's required checks,
+  enforcement `disabled` until the checks have reported once). A public project needs this
+  repository public too (section 3).
 - Tests (`tofu test`, mocked provider): squash-only settings, `required_approving_review_count == 0`,
   tag ruleset does not restrict creation, `prevent_destroy` present.
 
