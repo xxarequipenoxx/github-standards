@@ -71,9 +71,11 @@ github-standards/
 │   ├── no-ai-attribution.sh        # commit-msg stage
 │   └── sops-encrypted.sh           # fails if a *.sops.yaml file is not encrypted
 ├── renovate/default.json           # shared Renovate preset
+├── scripts/new-repo.sh             # make new-repo: create a project from repo-template (section 6)
 ├── terraform/                      # repositories as code (section 6)
 │   ├── modules/repository/         # settings + rulesets + environments for one repository
 │   ├── repositories.tf             # one module call per repository
+│   ├── projects.tf                 # projects created by new-repo.sh, one map entry each
 │   └── tests/                      # tofu test with a mocked provider
 └── docs/
     ├── adopting.md                 # how to move an existing repository to the standards
@@ -196,6 +198,17 @@ reusable workflow.
 - `repositories.tf`: `github-standards`, `repo-template`, `web-kit`, `kubernetes-infra`, `onibat`,
   `ai-agentic-setup`
   (the existing repository is named `Onibat`: import it with `tofu import`, do not recreate it).
+- New projects: `make new-repo NAME=<name>` asks only public or private, copies the latest
+  `repo-template` release into the new repository, applies the settings and **active**
+  rulesets at once through the API (`scripts/apply-settings.sh`, same values as the module;
+  the template's check names are known, so no disabled phase), and opens a pull request here
+  adding it to `terraform/projects.tf` with the ruleset ids. `import` blocks make the next
+  reviewed apply adopt everything with no change. `scripts/apply-settings.sh <owner>/<repo>`
+  brings an existing repository to the same settings. A public project needs this repository
+  public too (section 3).
+- Dependencies: Renovate does every version update (shared preset); Dependabot does
+  security updates only (setting on, `open-pull-requests-limit: 0` and conventional prefixes
+  in each project's `dependabot.yml`).
 - Tests (`tofu test`, mocked provider): squash-only settings, `required_approving_review_count == 0`,
   tag ruleset does not restrict creation, `prevent_destroy` present.
 

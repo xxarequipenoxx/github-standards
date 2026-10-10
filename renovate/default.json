@@ -1,0 +1,105 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Shared Renovate preset of this account (github-standards README section 10). Projects extend it with github>xxarequipenoxx/github-standards//renovate/default.",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Europe/Paris",
+  "schedule": ["* 0-6 * * 1"],
+  "semanticCommitType": "build",
+  "semanticCommitScope": "deps",
+  "enabledManagers": [
+    "github-actions",
+    "terraform",
+    "flux",
+    "pep621",
+    "dockerfile",
+    "pre-commit",
+    "custom.regex"
+  ],
+  "pre-commit": {
+    "enabled": true
+  },
+  "vulnerabilityAlerts": {
+    "description": "Security updates are Dependabot's (repository setting, conventional titles from dependabot.yml); Renovate does version updates only",
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "Group minor and patch updates into one weekly pull request",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "minor and patch updates"
+    },
+    {
+      "description": "Workflow and action updates are CI changes; patch updates auto-merge once the required checks pass",
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "ci"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["patch", "digest", "pinDigest"],
+      "groupName": "github actions patch updates",
+      "automerge": true
+    },
+    {
+      "description": "Reusable workflows and hooks of this account stay on release tags, never commit digests",
+      "matchPackageNames": ["xxarequipenoxx/github-standards"],
+      "pinDigests": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Tool versions pinned in actions/setup-tools (age is left out: its SHA-256 input must change together with the version)",
+      "managerFilePatterns": ["/^actions/setup-tools/action\\.yml$/"],
+      "matchStrings": [
+        "tofu-version:\\n\\s+description: [^\\n]*\\n\\s+required: false\\n\\s+default: (?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "opentofu/opentofu",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^actions/setup-tools/action\\.yml$/"],
+      "matchStrings": [
+        "kustomize-version:\\n\\s+description: [^\\n]*\\n\\s+required: false\\n\\s+default: (?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "kubernetes-sigs/kustomize",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^kustomize/v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^actions/setup-tools/action\\.yml$/"],
+      "matchStrings": [
+        "kubeconform-version:\\n\\s+description: [^\\n]*\\n\\s+required: false\\n\\s+default: (?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "yannh/kubeconform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^actions/setup-tools/action\\.yml$/"],
+      "matchStrings": [
+        "flux-version:\\n\\s+description: [^\\n]*\\n\\s+required: false\\n\\s+default: (?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "fluxcd/flux2",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^actions/setup-tools/action\\.yml$/"],
+      "matchStrings": [
+        "sops-version:\\n\\s+description: [^\\n]*\\n\\s+required: false\\n\\s+default: (?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "getsops/sops",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
+}

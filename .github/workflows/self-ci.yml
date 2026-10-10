@@ -129,3 +129,21 @@ jobs:
     with:
       working-directory: terraform
       run-tests: true
+
+  # S4: shared pre-commit hooks (hooks/) and the new-repo script (scripts/).
+  hooks:
+    name: hook tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the pull request head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run shellcheck on the scripts
+        run: shellcheck hooks/*.sh scripts/*.sh tests/hooks/*.sh
+
+      - name: Run the hook tests
+        run: bash tests/hooks/run.sh

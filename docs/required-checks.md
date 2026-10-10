@@ -85,6 +85,7 @@ locally, which gives the fixture coverage the README asks for.
 | `self-ci.yml` | `kubernetes` (calls `kubernetes-manifests.yml` on `tests/fixtures/kustomize`) | `kubernetes / kustomize and kubeconform` |
 | `self-ci.yml` | `kubernetes` (calls `kubernetes-manifests.yml` on `tests/fixtures/kustomize`) | `kubernetes / sops encrypted` |
 | `self-ci.yml` | `terraform` (calls `opentofu.yml` on `terraform`, mocked `tofu test`) | `terraform / opentofu` |
+| `self-ci.yml` | `hooks` (shellcheck and `tests/hooks/run.sh`) | `hook tests` |
 
 These names are the `required_checks` value for `github-standards` in
 `terraform/repositories.tf` (milestone S3). The `container sign` and `oci manifests sign`
