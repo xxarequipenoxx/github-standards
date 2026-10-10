@@ -17,6 +17,13 @@ locals {
   # name = { description, visibility, optional enforcement, optional required_checks,
   #          optional main_ruleset_id and tags_ruleset_id (set by new-repo.sh) }
   projects = {
+    "lifecycle-compliance-security" = {
+      description     = "Weekly compliance, obsolescence and AI security reports, AI suggestions and lifecycle tracking for all repositories"
+      visibility      = "private"
+      enforcement     = "active"
+      main_ruleset_id = 24852328
+      tags_ruleset_id = 24852331
+    }
     # new-repo.sh inserts entries above this line, keep it last
   }
 }
