@@ -22,6 +22,10 @@
   "pre-commit": {
     "enabled": true
   },
+  "vulnerabilityAlerts": {
+    "description": "Security updates are Dependabot's (repository setting, conventional titles from dependabot.yml); Renovate does version updates only",
+    "enabled": false
+  },
   "packageRules": [
     {
       "description": "Group minor and patch updates into one weekly pull request",

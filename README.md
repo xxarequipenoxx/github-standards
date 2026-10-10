@@ -198,12 +198,17 @@ reusable workflow.
 - `repositories.tf`: `github-standards`, `repo-template`, `web-kit`, `kubernetes-infra`, `onibat`,
   `ai-agentic-setup`
   (the existing repository is named `Onibat`: import it with `tofu import`, do not recreate it).
-- New projects: `make new-repo NAME=<name>` asks only public or private, creates the
-  repository from `repo-template` with `gh repo create --template`, and opens a pull request
-  here adding it to the `projects` map of `terraform/projects.tf`. An `import` block makes
-  the next reviewed apply adopt it (settings, rulesets with the template's required checks,
-  enforcement `disabled` until the checks have reported once). A public project needs this
-  repository public too (section 3).
+- New projects: `make new-repo NAME=<name>` asks only public or private, copies the latest
+  `repo-template` release into the new repository, applies the settings and **active**
+  rulesets at once through the API (`scripts/apply-settings.sh`, same values as the module;
+  the template's check names are known, so no disabled phase), and opens a pull request here
+  adding it to `terraform/projects.tf` with the ruleset ids. `import` blocks make the next
+  reviewed apply adopt everything with no change. `scripts/apply-settings.sh <owner>/<repo>`
+  brings an existing repository to the same settings. A public project needs this repository
+  public too (section 3).
+- Dependencies: Renovate does every version update (shared preset); Dependabot does
+  security updates only (setting on, `open-pull-requests-limit: 0` and conventional prefixes
+  in each project's `dependabot.yml`).
 - Tests (`tofu test`, mocked provider): squash-only settings, `required_approving_review_count == 0`,
   tag ruleset does not restrict creation, `prevent_destroy` present.
 
