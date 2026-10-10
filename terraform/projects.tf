@@ -33,6 +33,13 @@ locals {
         "python / dependency audit",
       ]
     }
+    "ai-video-factory" = {
+      description     = "Family project: automated multilingual (fr/en/es/it) video production for YouTube and TikTok, with AI agents and a human approval gate"
+      visibility      = "private"
+      enforcement     = "active"
+      main_ruleset_id = 24856821
+      tags_ruleset_id = 24856823
+    }
     # new-repo.sh inserts entries above this line, keep it last
   }
 }
