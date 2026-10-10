@@ -1,8 +1,9 @@
-# Projects created from repo-template by scripts/new-repo.sh (`make new-repo`). The script
-# creates the repository with `gh repo create --template` and adds one entry to the map
-# below in a pull request; the next reviewed apply imports the repository and applies the
-# standard settings and rulesets. Repositories with project-specific needs (required checks
-# beyond the template's, environments) graduate to their own module call in repositories.tf.
+# Projects created by scripts/new-repo.sh (`make new-repo`) from the latest repo-template
+# release. The script applies the standard settings and active rulesets through the API
+# (apply-settings.sh, same values as the module) and adds one entry to the map below in a
+# pull request, with the ids of the rulesets it created; the next reviewed apply imports the
+# repository and both rulesets, so the plan shows no change. Repositories with
+# project-specific needs (environments) graduate to their own module call in repositories.tf.
 
 locals {
   # Check names of the repo-template pr.yml (docs/required-checks.md, section 2). A language
@@ -13,7 +14,8 @@ locals {
     "security / zizmor",
   ]
 
-  # name = { description, visibility, optional enforcement, optional required_checks }
+  # name = { description, visibility, optional enforcement, optional required_checks,
+  #          optional main_ruleset_id and tags_ruleset_id (set by new-repo.sh) }
   projects = {
     # new-repo.sh inserts entries above this line, keep it last
   }
@@ -30,10 +32,22 @@ module "projects" {
   enforcement     = try(each.value.enforcement, "disabled") # adoption order (README section 9)
 }
 
-# The repository already exists when its entry lands (new-repo.sh created it): import it
-# instead of creating it. An import of a resource already in state is a no-op.
+# Everything already exists when the entry lands (new-repo.sh created it): import instead
+# of creating. An import of a resource already in state is a no-op.
 import {
   for_each = local.projects
   to       = module.projects[each.key].github_repository.this
   id       = each.key
+}
+
+import {
+  for_each = { for name, p in local.projects : name => p if try(p.main_ruleset_id, null) != null }
+  to       = module.projects[each.key].github_repository_ruleset.main
+  id       = "${each.key}:${each.value.main_ruleset_id}"
+}
+
+import {
+  for_each = { for name, p in local.projects : name => p if try(p.tags_ruleset_id, null) != null }
+  to       = module.projects[each.key].github_repository_ruleset.release_tags
+  id       = "${each.key}:${each.value.tags_ruleset_id}"
 }
