@@ -39,6 +39,14 @@ locals {
       enforcement     = "active"
       main_ruleset_id = 24856821
       tags_ruleset_id = 24856823
+      required_checks = [
+        "commits / conventional commits",
+        "security / gitleaks",
+        "security / zizmor",
+        "python / lint and types",
+        "python / tests (sqlite)",
+        "python / dependency audit",
+      ]
     }
     # new-repo.sh inserts entries above this line, keep it last
   }
