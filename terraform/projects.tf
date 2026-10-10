@@ -33,39 +33,60 @@ locals {
         "python / dependency audit",
       ]
     }
+    "ai-video-factory" = {
+      description     = "Family project: automated multilingual (fr/en/es/it) video production for YouTube and TikTok, with AI agents and a human approval gate"
+      visibility      = "private"
+      enforcement     = "active"
+      main_ruleset_id = 24856821
+      tags_ruleset_id = 24856823
+    }
     # new-repo.sh inserts entries above this line, keep it last
+  }
+
+  # Every entry with every attribute: entries of different shapes make local.projects an
+  # object, which for_each and conditionals reject; this is a map of one object type.
+  project_settings = {
+    for name, p in local.projects : name => {
+      description     = p.description
+      visibility      = p.visibility
+      enforcement     = try(p.enforcement, "disabled") # adoption order (README section 9)
+      required_checks = tolist(try(p.required_checks, local.template_checks))
+      has_wiki        = try(p.has_wiki, false)
+      main_ruleset_id = try(p.main_ruleset_id, null)
+      tags_ruleset_id = try(p.tags_ruleset_id, null)
+    }
   }
 }
 
 module "projects" {
   source   = "./modules/repository"
-  for_each = local.projects
+  for_each = local.project_settings
 
   name            = each.key
   description     = each.value.description
   visibility      = each.value.visibility
-  required_checks = try(each.value.required_checks, local.template_checks)
-  enforcement     = try(each.value.enforcement, "disabled") # adoption order (README section 9)
-  has_wiki        = try(each.value.has_wiki, false)
+  required_checks = each.value.required_checks
+  enforcement     = each.value.enforcement
+  has_wiki        = each.value.has_wiki
 }
 
 # Everything already exists when the entry lands (new-repo.sh created it): import instead
 # of creating. An import of a resource already in state is a no-op. tofu test cannot import
 # through a mocked provider, so the root test sets import_projects = false.
 import {
-  for_each = var.import_projects ? local.projects : {}
+  for_each = { for name, p in local.project_settings : name => p if var.import_projects }
   to       = module.projects[each.key].github_repository.this
   id       = each.key
 }
 
 import {
-  for_each = { for name, p in local.projects : name => p if var.import_projects && try(p.main_ruleset_id, null) != null }
+  for_each = { for name, p in local.project_settings : name => p if var.import_projects && p.main_ruleset_id != null }
   to       = module.projects[each.key].github_repository_ruleset.main
   id       = "${each.key}:${each.value.main_ruleset_id}"
 }
 
 import {
-  for_each = { for name, p in local.projects : name => p if var.import_projects && try(p.tags_ruleset_id, null) != null }
+  for_each = { for name, p in local.project_settings : name => p if var.import_projects && p.tags_ruleset_id != null }
   to       = module.projects[each.key].github_repository_ruleset.release_tags
   id       = "${each.key}:${each.value.tags_ruleset_id}"
 }
