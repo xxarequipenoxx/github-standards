@@ -4,24 +4,28 @@
 # terraform/modules/repository; keep the two in sync. Terraform adopts the result later.
 #
 #   scripts/apply-settings.sh <owner>/<repository> [--checks "a,b,c"] [--enforcement active|disabled]
+#                             [--wiki]
 #
 # --checks: required status checks (comma-separated); default: the repo-template pr.yml checks.
+# --wiki: keep the wiki enabled (off by default: documentation lives in the repository).
 # Prints `main_ruleset_id=<id>` and `tags_ruleset_id=<id>` on the last two lines.
 # Uses the GitHub CLI session; never reads or prints a token.
 set -euo pipefail
 
 usage() {
-  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
 repo=""
 checks="commits / conventional commits,security / gitleaks,security / zizmor"
 enforcement=active
+has_wiki=false
 while (($#)); do
   case "$1" in
     --checks) checks="${2?--checks needs a value}"; shift 2 ;;
     --enforcement) enforcement="${2:?--enforcement needs a value}"; shift 2 ;;
+    --wiki) has_wiki=true; shift ;;
     -h | --help) usage 0 ;;
     -*) echo "Unknown option: $1" >&2; usage 2 ;;
     *) repo="$1"; shift ;;
@@ -35,7 +39,7 @@ log() { printf '  %s\n' "$*" >&2; }
 echo "==> Applying the standard settings to ${repo} (${visibility})" >&2
 
 # Squash only: the PR title becomes the commit on main and drives the version bump.
-gh api --silent --method PATCH "repos/${repo}" --input - << 'JSON'
+gh api --silent --method PATCH "repos/${repo}" --input - << JSON
 {
   "allow_squash_merge": true,
   "allow_merge_commit": false,
@@ -45,11 +49,11 @@ gh api --silent --method PATCH "repos/${repo}" --input - << 'JSON'
   "delete_branch_on_merge": true,
   "allow_auto_merge": true,
   "allow_update_branch": true,
-  "has_wiki": false,
+  "has_wiki": ${has_wiki},
   "has_projects": false
 }
 JSON
-log "merge settings: squash only, PR title and body, delete branch, auto-merge"
+log "merge settings: squash only, PR title and body, delete branch, auto-merge (wiki: ${has_wiki})"
 
 gh api --silent --method PUT "repos/${repo}/vulnerability-alerts"
 gh api --silent --method PUT "repos/${repo}/automated-security-fixes"

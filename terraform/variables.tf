@@ -8,3 +8,9 @@ variable "github_owner" {
     error_message = "github_owner must be a valid GitHub login."
   }
 }
+
+variable "import_projects" {
+  description = "Import the repositories and rulesets of the projects map (projects.tf). Only the root test turns it off: tofu test cannot import through a mocked provider"
+  type        = bool
+  default     = true
+}

@@ -2,12 +2,16 @@
 
 mock_provider "github" {}
 
+variables {
+  import_projects = false # imports are not supported by tofu test (mocked provider)
+}
+
 run "every_repository_starts_disabled" {
   command = plan
 
   assert {
-    condition     = alltrue([for r in output.repositories : r.enforcement == "disabled"])
-    error_message = "milestone S3 ships every ruleset disabled (README section 9); switch per repository in a later PR"
+    condition     = alltrue([for key in ["github_standards", "repo_template", "web_kit", "kubernetes_infra", "onibat", "ai_agentic_setup"] : output.repositories[key].enforcement == "disabled"])
+    error_message = "milestone S3 ships the six fixed repositories with rulesets disabled (README section 9); new-repo.sh projects start active"
   }
 
   assert {
