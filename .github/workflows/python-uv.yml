@@ -40,6 +40,11 @@ on:
         type: string
         required: false
         default: ""
+      apt-packages:
+        description: Space-separated Debian packages installed with apt before pytest (e.g. ffmpeg); empty = none
+        type: string
+        required: false
+        default: ""
       git-credentials:
         description: Configure git to use the GIT_READ_TOKEN secret for private git dependencies before uv sync
         type: boolean
@@ -132,6 +137,18 @@ jobs:
       - name: Sync the locked environment
         run: uv sync --frozen
 
+      - name: Install the system packages
+        if: inputs.apt-packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt-packages }}
+        run: |
+          for package in ${PACKAGES}; do
+            [[ "${package}" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::invalid package name '${package}'"; exit 1; }
+          done
+          sudo apt-get update -qq
+          # shellcheck disable=SC2086 # one argument per validated package name on purpose
+          sudo apt-get install -y -qq --no-install-recommends ${PACKAGES}
+
       - name: Install the Playwright browsers
         if: inputs.playwright-browsers != ''
         env:
@@ -213,6 +230,18 @@ jobs:
 
       - name: Sync the locked environment
         run: uv sync --frozen
+
+      - name: Install the system packages
+        if: inputs.apt-packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt-packages }}
+        run: |
+          for package in ${PACKAGES}; do
+            [[ "${package}" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::invalid package name '${package}'"; exit 1; }
+          done
+          sudo apt-get update -qq
+          # shellcheck disable=SC2086 # one argument per validated package name on purpose
+          sudo apt-get install -y -qq --no-install-recommends ${PACKAGES}
 
       - name: Install the Playwright browsers
         if: inputs.playwright-browsers != ''

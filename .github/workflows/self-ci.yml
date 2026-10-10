@@ -76,6 +76,7 @@ jobs:
     with:
       working-directory: tests/fixtures/python-uv
       postgres-versions: '["17"]'
+      apt-packages: tree # exercises the apt input with a tiny package
       coverage-threshold: 70 # the PostgreSQL branch is uncovered on SQLite
 
   container:

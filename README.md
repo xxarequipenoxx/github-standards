@@ -290,7 +290,7 @@ actions by SHA, and set `concurrency` where it matters. Callers pass secrets exp
 | `release.yml` | | `released`, `version`, `tag` | `contents: write` |
 | `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool), `build-secrets` (multiline `id=value`, forwarded to BuildKit), `push` (bool, default true) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
 | `oci-manifests.yml` | `image-name`, `image-digest`, `version`, `path` (e.g. `deploy`), `overlay`, `artifact-name`, `crd-schema-locations`, `sign`, `push` (bool, default true) | `artifact` | `contents: read`, `packages: write`, `id-token: write` if signing |
-| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`) | | `contents: read` |
+| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`) | | `contents: read` |
 | `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests` | | `contents: read` |
 | `kubernetes-manifests.yml` | `paths` (JSON list), `crd-schema-locations`, `check-sops` | | `contents: read` |
 | `security.yml` | | | `contents: read`, `security-events: write` (SARIF upload) |
@@ -327,6 +327,8 @@ Behaviour details:
   `pytest` with the coverage gate (SQLite, plus one job per PostgreSQL version as a service
   container, which exports `TEST_DATABASE_URL` and the libpq `PG*` variables), `pip-audit`
   on the exported lock;
+  - `apt-packages`: Debian packages installed with apt before pytest in both test jobs
+    (`ffmpeg` for media projects); names are validated before the install;
   - `playwright-browsers`: comma list installed with `playwright install --with-deps`
     before pytest (the project must depend on `playwright`); empty installs nothing;
   - `git-credentials`: when true, git rewrites `https://github.com/` to use the
