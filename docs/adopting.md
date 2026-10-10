@@ -38,7 +38,8 @@ be public too (README, section 3). The script warns before creating a public pro
    section 8, has the Onibat example). Keep project-specific workflows (mobile builds) local.
 2. Copy `.cz.toml` (or `[tool.commitizen]` in `pyproject.toml`) with the standard values of
    README section 4; they must match exactly, the release workflow depends on them.
-3. Copy `.pre-commit-config.yaml`, `renovate.json`, `.editorconfig` and the AI-agent files
+3. Copy `.pre-commit-config.yaml`, `renovate.json`, `.editorconfig`, `.github/zizmor.yml`
+   (lets zizmor accept the tag-pinned reusable workflows) and the AI-agent files
    (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) from `repo-template`. Drop `dependabot.yml` for
    version updates once Renovate runs (Dependabot security updates stay on, managed by
    Terraform).
