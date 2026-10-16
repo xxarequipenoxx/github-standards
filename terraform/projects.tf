@@ -48,6 +48,22 @@ locals {
         "python / dependency audit",
       ]
     }
+    "devspaces" = {
+      description     = "OpenShift Dev Spaces workspaces with nested containers (rootless podman): devfiles for GitHub token and SSH, documented cluster setup, hello world and test scripts"
+      visibility      = "private"
+      enforcement     = "active"
+      main_ruleset_id = 25263538
+      tags_ruleset_id = 25263541
+      # pr.yml: github-standards commits and security, plus the local lint and Go jobs
+      required_checks = [
+        "commits / conventional commits",
+        "security / gitleaks",
+        "security / zizmor",
+        "lint",
+        "app-helloworld (pat)",
+        "app-helloworld (ssh)",
+      ]
+    }
     # new-repo.sh inserts entries above this line, keep it last
   }
 
