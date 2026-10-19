@@ -29,6 +29,9 @@ new-repo: ## Create a project from repo-template: make new-repo NAME=my-project 
 	@test -n "$(NAME)" || { echo "usage: make new-repo NAME=my-project [VISIBILITY=public|private]"; exit 2; }
 	scripts/new-repo.sh "$(NAME)" $(if $(VISIBILITY),--$(VISIBILITY))
 
+plan-dry-run: ## Dry run of terraform/ against the live repositories: no state backend, read-only
+	scripts/terraform-dry-run.sh
+
 apply-settings: ## Apply the standard settings and rulesets: make apply-settings REPO=owner/name [CHECKS="a,b"]
 	@test -n "$(REPO)" || { echo "usage: make apply-settings REPO=owner/name [CHECKS=\"a,b\"]"; exit 2; }
 	scripts/apply-settings.sh "$(REPO)" $(if $(CHECKS),--checks "$(CHECKS)")
