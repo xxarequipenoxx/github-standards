@@ -54,8 +54,8 @@ module "github_standards" {
 
   name                 = "github-standards"
   description          = "Shared engineering standards: reusable GitHub Actions workflows, repository rulesets as code, Renovate preset, pre-commit hooks"
-  visibility           = "private"
-  actions_access_level = "user" # private reusable workflows callable from the owner's repositories
+  visibility           = "public" # public projects call its workflows (docs/adopting.md, section 1)
+  actions_access_level = "user"   # ignored while public; applies again if it ever turns private
   required_checks      = local.github_standards_checks
   enforcement          = "active"
 }

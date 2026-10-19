@@ -40,7 +40,7 @@ be merged.
 
 | Repository | Visibility | Role |
 |---|---|---|
-| `github-standards` (this one) | private, Actions access: *"Accessible from repositories owned by the user"* | reusable workflows, composite actions, repository settings and rulesets as code, Renovate preset, shared hooks, docs |
+| `github-standards` (this one) | public, so public projects can call its workflows (private projects call them too) | reusable workflows, composite actions, repository settings and rulesets as code, Renovate preset, shared hooks, docs |
 | `repo-template` | private, `is_template = true` | skeleton for new projects: thin caller workflows, commitizen config, pre-commit, AGENTS.md, PR template |
 
 Private reusable workflows can be called only from **private** repositories of the same
