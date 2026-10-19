@@ -3,7 +3,7 @@
 #
 # Adoption order (README section 9): every ruleset starts with enforcement = "disabled";
 # required_checks are the names GitHub reports on a real pull request; switch to "active"
-# per repository once the checks are known to report.
+# per repository once the checks are known to report. All six report them now: active.
 
 locals {
   # Names produced by self-ci.yml, one per row of docs/required-checks.md section 3.
@@ -57,35 +57,38 @@ module "github_standards" {
   visibility           = "private"
   actions_access_level = "user" # private reusable workflows callable from the owner's repositories
   required_checks      = local.github_standards_checks
-  enforcement          = "disabled"
+  enforcement          = "active"
 }
 
 module "repo_template" {
   source = "./modules/repository"
 
-  name        = "repo-template"
-  description = "Template repository for new projects: thin caller workflows, commitizen, pre-commit, agent conventions"
-  visibility  = "private"
-  is_template = true
-  enforcement = "disabled"
+  name            = "repo-template"
+  description     = "Template repository for new projects: thin caller workflows, commitizen, pre-commit, agent conventions"
+  visibility      = "private"
+  is_template     = true
+  required_checks = local.template_checks
+  enforcement     = "active"
 }
 
 module "web_kit" {
   source = "./modules/repository"
 
-  name        = "web-kit"
-  description = "Web template kit: HTML5 design system, Jinja2 layouts, FR/EN i18n, PWA, visual and accessibility tests"
-  visibility  = "private"
-  enforcement = "disabled"
+  name            = "web-kit"
+  description     = "Web template kit: HTML5 design system, Jinja2 layouts, FR/EN i18n, PWA, visual and accessibility tests"
+  visibility      = "private"
+  required_checks = local.template_checks # pr.yml: the template callers
+  enforcement     = "active"
 }
 
 module "kubernetes_infra" {
   source = "./modules/repository"
 
-  name        = "kubernetes-infra"
-  description = "GitOps platform on managed Kubernetes: OpenTofu for the cloud resources, Flux for everything in the cluster"
-  visibility  = "private"
-  enforcement = "disabled"
+  name            = "kubernetes-infra"
+  description     = "GitOps platform on managed Kubernetes: OpenTofu for the cloud resources, Flux for everything in the cluster"
+  visibility      = "private"
+  required_checks = local.template_checks # pr.yml: the template callers
+  enforcement     = "active"
 }
 
 # Existing repository, imported (README section 6): the name keeps its capital letter.
@@ -96,7 +99,7 @@ module "onibat" {
   description     = "Website, back-office, CRM, quoting and automation platform for Onibat"
   visibility      = "private"
   required_checks = local.onibat_checks
-  enforcement     = "disabled"
+  enforcement     = "active"
 }
 
 module "ai_agentic_setup" {
@@ -106,5 +109,5 @@ module "ai_agentic_setup" {
   description     = "AI governance: vendor-neutral standards, agents and skills for Claude Code, Codex CLI and Gemini CLI"
   visibility      = "private"
   required_checks = local.ai_agentic_setup_checks
-  enforcement     = "disabled"
+  enforcement     = "active"
 }

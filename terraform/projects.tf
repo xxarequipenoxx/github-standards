@@ -64,22 +64,25 @@ locals {
         "app-helloworld (ssh)",
       ]
     }
-    # Existing repositories adopted without CI yet (docs/adopting.md, section 2): rulesets
-    # start disabled and are created by the apply (no ruleset ids to import), template checks
-    # until their pr.yml reports real names.
+    # Existing repositories adopted later (docs/adopting.md, section 2): their pr.yml calls the
+    # template checks, read from their first pull request; the apply creates both rulesets
+    # (no ruleset ids to import).
     "wsl-setup" = {
       description = "Bootstrap scripts for Ubuntu on WSL2 with AI agent tooling"
       visibility  = "public"
+      enforcement = "active"
       has_wiki    = true # enabled today: keep it until its content is checked
     }
     "devspaces-pub" = {
       description = "Public devfile for OpenShift Dev Spaces workspaces"
       visibility  = "public"
+      enforcement = "active"
       has_wiki    = true # enabled today: keep it until its content is checked
     }
     "ejmc" = {
       description = "EJMC - Club Shidokan Karate Do  CHAMBERY"
       visibility  = "private"
+      enforcement = "active"
     }
     # new-repo.sh inserts entries above this line, keep it last
   }
