@@ -6,12 +6,17 @@ variables {
   import_projects = false # imports are not supported by tofu test (mocked provider)
 }
 
-run "every_repository_starts_disabled" {
+run "every_repository_is_active" {
   command = plan
 
   assert {
-    condition     = alltrue([for key in ["github_standards", "repo_template", "web_kit", "kubernetes_infra", "onibat", "ai_agentic_setup"] : output.repositories[key].enforcement == "disabled"])
-    error_message = "milestone S3 ships the six fixed repositories with rulesets disabled (README section 9); new-repo.sh projects start active"
+    condition     = alltrue([for key, repo in output.repositories : repo.enforcement == "active"])
+    error_message = "every managed repository reports its required checks, so every ruleset is active (README section 9)"
+  }
+
+  assert {
+    condition     = alltrue([for key, repo in output.repositories : length(repo.required_checks) > 0])
+    error_message = "an active ruleset with no required check lets auto-merge merge before any check ran (auto-merge.yml)"
   }
 
   assert {
