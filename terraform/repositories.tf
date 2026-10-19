@@ -79,6 +79,7 @@ module "web_kit" {
   visibility      = "private"
   required_checks = local.template_checks # pr.yml: the template callers
   enforcement     = "active"
+  has_wiki        = true # enabled on GitHub: kept until its content is checked
 }
 
 module "kubernetes_infra" {
@@ -89,6 +90,7 @@ module "kubernetes_infra" {
   visibility      = "private"
   required_checks = local.template_checks # pr.yml: the template callers
   enforcement     = "active"
+  has_wiki        = true # enabled on GitHub: kept until its content is checked
 }
 
 # Existing repository, imported (README section 6): the name keeps its capital letter.
