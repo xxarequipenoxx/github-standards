@@ -294,6 +294,7 @@ actions by SHA, and set `concurrency` where it matters. Callers pass secrets exp
 | `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests` | | `contents: read` |
 | `kubernetes-manifests.yml` | `paths` (JSON list), `crd-schema-locations`, `check-sops` | | `contents: read` |
 | `security.yml` | | | `contents: read`, `security-events: write` (SARIF upload) |
+| `auto-merge.yml` | secret `token` (`AUTO_MERGE_TOKEN`) | | `contents: read` |
 | `ai-review.yml` | `assistant` (`claude`/`codex`/`gemini`), `prompt-file` | | `contents: read`, `pull-requests: write`, `issues: write` |
 
 Behaviour details:
@@ -336,6 +337,18 @@ Behaviour details:
     dependencies such as web-kit; the token stays in `env:` and is never printed.
 - **`security.yml`**: gitleaks on the full history of the PR range, zizmor on
   `.github/workflows/`.
+- **`auto-merge.yml`**: turns on GitHub auto-merge (squash) for every pull request that does
+  not announce a breaking change, and turns it off when a later push or edit announces one:
+  - breaking change: `!` before the colon of the header, or a `BREAKING CHANGE:` /
+    `BREAKING-CHANGE:` footer, in the PR title, the PR body or any branch commit; those pull
+    requests wait for a human merge;
+  - only when the target branch has active required status checks (otherwise GitHub would
+    merge before any check ran); drafts and forks are skipped;
+  - needs the secret `AUTO_MERGE_TOKEN` (fine-grained token, Contents and Pull requests read
+    and write): a merge done by auto-merge turned on with `GITHUB_TOKEN` triggers no push
+    workflow, so `release.yml` would never run. Without the secret the job only warns;
+  - caller trigger `pull_request` with `edited` and `ready_for_review`, so a title change
+    or a draft becoming ready is re-evaluated. Never a required check.
 
 `actions/setup-tools` pins versions in one place (verified 2026-09-21: OpenTofu 1.12.6,
 kustomize 5.8.1, kubeconform 0.8.0, flux 2.9.5, sops 3.13.3, age 1.3.2, commitizen 4.x)

@@ -1,0 +1,139 @@
+name: auto-merge
+
+# Reusable: turns on GitHub auto-merge (squash) for a pull request unless it announces a
+# breaking change, and turns it off again when a later push or edit announces one. GitHub
+# then merges by itself once the required checks of main-protection pass.
+#
+# Breaking change (Conventional Commits 1.0): a "!" before the colon of the header, or a
+# "BREAKING CHANGE:" / "BREAKING-CHANGE:" footer, in the pull request title or body (the
+# squash commit on main) or in any commit of the branch. Those pull requests wait for a
+# human merge.
+#
+# Auto-merge is only turned on when the target branch has active required status checks:
+# without them GitHub would merge at once, before any check ran (rulesets still disabled,
+# README section 9). Drafts and pull requests from forks are skipped.
+#
+# Token: a merge done by auto-merge turned on with GITHUB_TOKEN triggers no push workflow,
+# so release.yml would never run. The caller passes a token of its own (secret
+# AUTO_MERGE_TOKEN, fine-grained: Contents and Pull requests read and write on the
+# repository). Without it the job warns and does nothing.
+#
+# Status check name: <caller job id> / auto-merge (never make it required)
+# Caller permissions: contents: read
+# Caller trigger: pull_request with types [opened, synchronize, reopened, edited, ready_for_review]
+
+on:
+  workflow_call:
+    secrets:
+      token:
+        description: Token that turns auto-merge on and off (AUTO_MERGE_TOKEN); never GITHUB_TOKEN
+        required: false
+
+permissions: {}
+
+jobs:
+  auto-merge:
+    name: auto-merge
+    if: >-
+      github.event_name == 'pull_request'
+      && !github.event.pull_request.draft
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: auto-merge-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out the pull request head with full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect a breaking change
+        id: breaking
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: python
+        run: |
+          import os
+          import re
+          import subprocess
+
+          HEADER = re.compile(r"^[A-Za-z]+(\([^)]*\))?!:")
+          FOOTER = re.compile(r"^BREAKING[ -]CHANGE:", re.MULTILINE)
+
+          def reasons(source, text, header):
+              found = []
+              if header and HEADER.match(text.splitlines()[0] if text else ""):
+                  found.append(f"{source}: '!' in the header")
+              if FOOTER.search(text):
+                  found.append(f"{source}: BREAKING CHANGE footer")
+              return found
+
+          rev_range = f"{os.environ['BASE_SHA']}..{os.environ['HEAD_SHA']}"
+          commits = subprocess.run(
+              ["git", "rev-list", rev_range], check=True, capture_output=True, text=True
+          ).stdout.split()
+
+          found = reasons("pull request title", os.environ.get("PR_TITLE") or "", header=True)
+          found += reasons("pull request body", os.environ.get("PR_BODY") or "", header=False)
+          for sha in commits:
+              message = subprocess.run(
+                  ["git", "log", "-1", "--format=%B", sha], check=True, capture_output=True, text=True
+              ).stdout
+              found += reasons(f"commit {sha[:12]}", message, header=True)
+
+          for reason in found:
+              print(f"::notice::Breaking change, auto-merge stays off ({reason})")
+          if not found:
+              print(f"No breaking change in {len(commits)} commit(s), the pull request title and body.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"breaking={'true' if found else 'false'}\n")
+
+      - name: Check that the target branch requires status checks
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          count="$(gh api "repos/${REPOSITORY}/rules/branches/${BASE_REF}" \
+            --jq '[.[] | select(.type == "required_status_checks")] | length')"
+          if [[ "${count}" -gt 0 ]]; then
+            echo "required=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "::warning::${BASE_REF} has no active required status checks: auto-merge would merge before any check ran, left off"
+            echo "required=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Turn auto-merge on or off
+        env:
+          GH_TOKEN: ${{ secrets.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BREAKING: ${{ steps.breaking.outputs.breaking }}
+          REQUIRED: ${{ steps.gate.outputs.required }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "::warning::secret AUTO_MERGE_TOKEN is not set: auto-merge left unchanged"
+            exit 0
+          fi
+          enabled="$(gh pr view "${PR_URL}" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+          if [[ "${BREAKING}" == "true" ]]; then
+            if [[ "${enabled}" == "true" ]]; then
+              gh pr merge "${PR_URL}" --disable-auto
+              echo "Auto-merge turned off: breaking change, a human merges it."
+            fi
+          elif [[ "${REQUIRED}" == "true" ]]; then
+            # --match-head-commit: never merge a head that this run did not inspect.
+            gh pr merge "${PR_URL}" --auto --squash --match-head-commit "${HEAD_SHA}"
+            echo "Auto-merge on: GitHub merges once the required checks pass."
+          fi

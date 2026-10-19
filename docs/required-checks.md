@@ -39,6 +39,7 @@ half if a project uses different job ids.
 | `commits.yml` | `conventional commits` | `commits` | `commits / conventional commits` |
 | `security.yml` | `gitleaks` | `security` | `security / gitleaks` |
 | `security.yml` | `zizmor` | `security` | `security / zizmor` |
+| `auto-merge.yml` | `auto-merge` (never required: it only turns auto-merge on or off) | `auto-merge` | `auto-merge / auto-merge` |
 | `release.yml` | `release` | `version` | `version / release` |
 | `python-uv.yml` | `lint and types` | `python` | `python / lint and types` |
 | `python-uv.yml` | `tests (sqlite)` | `python` | `python / tests (sqlite)` |
@@ -86,9 +87,10 @@ locally, which gives the fixture coverage the README asks for.
 | `self-ci.yml` | `kubernetes` (calls `kubernetes-manifests.yml` on `tests/fixtures/kustomize`) | `kubernetes / sops encrypted` |
 | `self-ci.yml` | `terraform` (calls `opentofu.yml` on `terraform`, mocked `tofu test`) | `terraform / opentofu` |
 | `self-ci.yml` | `hooks` (shellcheck and `tests/hooks/run.sh`) | `hook tests` |
+| `self-ci.yml` | `auto-merge` (calls `auto-merge.yml`) | `auto-merge / auto-merge` |
 
-These names are the `required_checks` value for `github-standards` in
-`terraform/repositories.tf` (milestone S3). The `container sign` and `oci manifests sign`
+These names, except `auto-merge / auto-merge`, are the `required_checks` value for
+`github-standards` in `terraform/repositories.tf` (milestone S3). The `container sign` and `oci manifests sign`
 jobs are skipped in the fixtures (no push, no signing) and are not listed.
 
 ---
