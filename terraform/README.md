@@ -184,6 +184,27 @@ unprotected in between.
 
 ---
 
+## 4b. Dry run without a state backend
+
+Before the state bucket exists, or for a quick check of what an apply would change:
+
+```bash
+make plan-dry-run          # scripts/terraform-dry-run.sh [--keep]
+```
+
+The script copies `terraform/` to a temporary directory, replaces the s3 backend with a local
+one (`zz_dry_run_override.tf`), writes import blocks for every repository, ruleset and
+setting that already exists on GitHub (`zz_dry_run_imports.tf`, from read-only `gh api`
+calls), and runs `tofu plan`. Imports are only previewed: nothing is applied, no state is
+written anywhere, and the copy is deleted (`--keep` keeps it). The token is `GITHUB_TOKEN`
+when set, else the GitHub CLI session, acceptable because a plan only reads. The summary
+counts imports, creates, updates and lists every delete.
+
+Read the plan as in section 5. A dry run is not a substitute for the reviewed apply: the
+real apply still needs the backend (section 2) and the restricted token (section 3).
+
+---
+
 ## 5. Plan review
 
 ```bash
