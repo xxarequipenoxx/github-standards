@@ -17,9 +17,10 @@ the Renovate preset (renovate/default.json).
 - Secrets never enter Git: gitleaks runs in the pre-commit hooks and in the security.yml
   reusable workflow on every pull request.
 - Third-party GitHub Actions are pinned by commit SHA; workflows are audited with actionlint
-  and zizmor (.github/zizmor.yml) and run with `permissions: {}` at the top level and
-  least-privilege grants per job. A reusable workflow never asks for more than the caller
-  contract documented in README section 7.
+  and zizmor (.github/zizmor.yml) and run with least-privilege grants per job. A reusable
+  workflow never asks for more than the caller contract documented in README section 7; the
+  sign jobs of container.yml and oci-manifests.yml inherit the caller grants on purpose (see
+  the comment in each file).
 - terraform/ manages the repositories as code; it is never planned or applied from CI.
 - Dependencies are updated through Renovate pull requests and gated by the required checks;
   Dependabot keeps security updates only (.github/dependabot.yml).

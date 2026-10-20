@@ -63,9 +63,8 @@ on:
         description: Image digest, sha256:<hex>
         value: ${{ jobs.build.outputs.digest }}
 
-# Nothing at the workflow level: every job declares its own least-privilege block, capped by
-# the caller's grants.
-permissions: {}
+# No workflow-level permissions on purpose: the sign job inherits the caller's grants (see
+# the job). Every other job declares its own least-privilege block.
 
 jobs:
   build:
@@ -166,9 +165,10 @@ jobs:
   sign:
     name: container sign
     if: inputs.sign && inputs.push
-    permissions:
-      packages: write # push the cosign signature next to the artifact in GHCR
-      id-token: write # keyless signing with the workflow OIDC identity
+    # No permissions block on purpose: GitHub validates a called job's permissions against the
+    # caller's grants when the run is planned, even when the job is skipped, so declaring
+    # id-token write here would break every caller that does not sign. The job inherits the
+    # caller's grants instead: packages write and id-token write when signing (README section 7).
     needs: build
     runs-on: ubuntu-latest
     steps:
