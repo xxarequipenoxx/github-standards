@@ -71,6 +71,10 @@ github-standards/
 │   ├── no-ai-attribution.sh        # commit-msg stage
 │   └── sops-encrypted.sh           # fails if a *.sops.yaml file is not encrypted
 ├── renovate/default.json           # shared Renovate preset
+├── renovate.json                   # this repository extends its own preset
+├── .github/zizmor.yml              # zizmor policy: own workflows ref-pinned, the rest hash-pinned
+├── .github/dependabot.yml          # security updates only (github-actions, terraform)
+├── SECURITY.md                     # vulnerability reporting and repository practices
 ├── scripts/new-repo.sh             # make new-repo: create a project from repo-template (section 6)
 ├── terraform/                      # repositories as code (section 6)
 │   ├── modules/repository/         # settings + rulesets + environments for one repository

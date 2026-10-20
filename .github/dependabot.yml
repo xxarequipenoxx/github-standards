@@ -1,0 +1,21 @@
+# Dependabot handles security updates only; Renovate (renovate.json, this repository's own
+# preset) does every version update. open-pull-requests-limit: 0 disables version updates
+# without affecting security updates, and the prefix makes security pull requests
+# conventional so they pass the commits check. tests/fixtures are throwaway projects for the
+# reusable workflows and get no entry on purpose.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: ci(deps)
+  - package-ecosystem: terraform
+    directory: /terraform
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: build(deps)
