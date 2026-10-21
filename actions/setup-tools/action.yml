@@ -13,11 +13,11 @@ inputs:
   tofu-version:
     description: OpenTofu version (without the v)
     required: false
-    default: 1.12.6
+    default: 1.13.1
   kustomize-version:
     description: kustomize version (without the v)
     required: false
-    default: 5.8.1
+    default: 5.8.3
   kubeconform-version:
     description: kubeconform version (without the v)
     required: false
@@ -25,7 +25,7 @@ inputs:
   flux-version:
     description: flux CLI version (without the v)
     required: false
-    default: 2.9.5
+    default: 2.9.6
   sops-version:
     description: sops version (without the v)
     required: false
