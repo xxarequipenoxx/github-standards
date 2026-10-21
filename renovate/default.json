@@ -33,6 +33,12 @@
       "groupName": "minor and patch updates"
     },
     {
+      "description": "Major updates wait for the owner: the lifecycle auto-merge sweep holds pull requests labelled owner-review (minor, patch and digest updates still merge alone)",
+      "matchUpdateTypes": ["major"],
+      "addLabels": ["owner-review"],
+      "automerge": false
+    },
+    {
       "description": "Workflow and action updates are CI changes; patch updates auto-merge once the required checks pass",
       "matchManagers": ["github-actions"],
       "semanticCommitType": "ci"

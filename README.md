@@ -469,6 +469,8 @@ jobs:
   credentials; CI does not rely on it (the reusable workflows perform the same checks).
 - `renovate/default.json`:
   - weekly schedule; minor and patch updates grouped;
+  - major updates labelled `owner-review`: the lifecycle auto-merge sweep holds them until
+    the owner merges or removes the label (minor, patch and digest updates merge alone);
   - auto-merge of patch updates for GitHub Actions and reusable workflow refs (safe because
     the required checks gate them);
   - managers enabled: `github-actions` (includes `uses: owner/repo/.github/workflows/x.yml@vX`),
