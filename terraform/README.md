@@ -65,8 +65,8 @@ aws --endpoint-url https://s3.<region>.io.cloud.ovh.net --region <region> \
 The OVH S3 endpoint has the form `https://s3.<region>.io.cloud.ovh.net` where `<region>` is
 the lowercase region code of the bucket (for example `gra`, `sbg`, `rbx`, `de`, `uk`); the
 S3 region name is the same code. Use a dedicated S3 user whose policy is limited to this
-bucket, as kubernetes-infra does for its own state. Versioning is what lets you recover a
-previous state after a bad apply.
+bucket, as the OVH design of platform-infra (formerly kubernetes-infra) planned for its own
+state. Versioning is what lets you recover a previous state after a bad apply.
 
 Then write `terraform/backend.hcl` (gitignored, never committed):
 
@@ -145,14 +145,14 @@ cd terraform
   tofu import module.github_standards.github_repository.this github-standards
   tofu import module.repo_template.github_repository.this repo-template
   tofu import module.web_kit.github_repository.this web-kit
-  tofu import module.kubernetes_infra.github_repository.this kubernetes-infra
+  tofu import module.kubernetes_infra.github_repository.this platform-infra
   tofu import module.onibat.github_repository.this Onibat
   tofu import module.ai_agentic_setup.github_repository.this ai-agentic-setup
 
   # Settings that already exist on every repository (their create is an idempotent PUT, so
   # importing is optional; it makes the first plan show the real diff instead of a create).
   for m in github_standards:github-standards repo_template:repo-template web_kit:web-kit \
-           kubernetes_infra:kubernetes-infra onibat:Onibat \
+           kubernetes_infra:platform-infra onibat:Onibat \
            ai_agentic_setup:ai-agentic-setup; do
     tofu import "module.${m%%:*}.github_repository_vulnerability_alerts.this" "${m##*:}"
     tofu import "module.${m%%:*}.github_repository_dependabot_security_updates.this" "${m##*:}"
@@ -262,7 +262,7 @@ Current state of the six repositories in `repositories.tf`:
 | `github_standards` | github-standards | the 14 names of `self-ci.yml` (`docs/required-checks.md`, section 3) | disabled |
 | `repo_template` | repo-template (`is_template = true`) | none yet | disabled |
 | `web_kit` | web-kit | none yet | disabled |
-| `kubernetes_infra` | kubernetes-infra | none yet (callers land in S5) | disabled |
+| `kubernetes_infra` | platform-infra (renamed from kubernetes-infra) | the template callers plus `plan policies`, `kubernetes`, `checkov`, `trivy config` and `images` | active |
 | `onibat` | Onibat | the nine jobs of its current `pr.yml` | disabled |
 | `ai_agentic_setup` | ai-agentic-setup | the four jobs of its `pr.yml` (reported on its PR #1) | disabled |
 

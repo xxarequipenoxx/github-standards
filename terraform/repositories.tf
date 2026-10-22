@@ -39,6 +39,17 @@ locals {
     "container build",
   ]
 
+  # platform-infra: the template callers plus its security and cost checks (iac-security.yml,
+  # image-scan.yml). Those workflows run on every pull request and skip their jobs when nothing
+  # relevant changed, so a required check never waits on a filtered-out workflow.
+  platform_infra_checks = concat(local.template_checks, [
+    "plan policies",
+    "kubernetes",
+    "checkov",
+    "trivy config",
+    "images",
+  ])
+
   # The four jobs of ai-agentic-setup pr.yml (local jobs, inlined until it calls the
   # reusable workflows of this repository). Names read from its first pull request.
   ai_agentic_setup_checks = [
@@ -82,13 +93,15 @@ module "web_kit" {
   has_wiki        = true # enabled on GitHub: kept until its content is checked
 }
 
+# Renamed from kubernetes-infra on GitHub (2026-10-21). The module key stays, so the state
+# address does not move; the name below must match GitHub or an apply renames it back.
 module "kubernetes_infra" {
   source = "./modules/repository"
 
-  name            = "kubernetes-infra"
-  description     = "GitOps platform on managed Kubernetes: OpenTofu for the cloud resources, Flux for everything in the cluster"
+  name            = "platform-infra"
+  description     = "Cloud platform as code: OpenTofu per provider (Azure first), ArgoCD GitOps, FinOps guards"
   visibility      = "private"
-  required_checks = local.template_checks # pr.yml: the template callers
+  required_checks = local.platform_infra_checks
   enforcement     = "active"
   has_wiki        = true # enabled on GitHub: kept until its content is checked
 }
