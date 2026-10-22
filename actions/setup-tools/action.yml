@@ -186,13 +186,15 @@ runs:
         set -euo pipefail
         echo "${BIN_DIR}" >> "${GITHUB_PATH}"
         export PATH="${BIN_DIR}:${PATH}"
+        # sed -n 1p reads the whole output: head -1 would close the pipe early, the tool would get
+        # SIGPIPE (exit 141) and pipefail would fail the step at random.
         for tool in ${TOOLS//-/ }; do
           case "${tool}" in
-            tofu) tofu version | head -1 ;;
+            tofu) tofu version | sed -n 1p ;;
             kustomize) echo "kustomize $(kustomize version)" ;;
             kubeconform) echo "kubeconform $(kubeconform -v)" ;;
             flux) flux version --client ;;
-            sops) sops --version 2>/dev/null | head -1 ;;
+            sops) sops --version 2>/dev/null | sed -n 1p ;;
             age) echo "age $(age --version)" ;;
           esac
         done
