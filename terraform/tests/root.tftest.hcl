@@ -21,7 +21,7 @@ run "every_repository_is_active" {
 
   assert {
     condition     = alltrue([for key in ["github_standards", "repo_template", "web_kit", "kubernetes_infra", "onibat", "ai_agentic_setup"] : contains(keys(output.repositories), key)])
-    error_message = "the six fixed repositories are managed: github-standards, repo-template, web-kit, kubernetes-infra, Onibat, ai-agentic-setup"
+    error_message = "the six fixed repositories are managed: github-standards, repo-template, web-kit, platform-infra (module kubernetes_infra), Onibat, ai-agentic-setup"
   }
 
   assert {
