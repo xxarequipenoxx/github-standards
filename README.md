@@ -3,7 +3,7 @@
 Shared engineering standards for all my GitHub repositories: branch policy on `main`,
 Conventional Commits and automatic versioning with commitizen, reusable CI/CD workflows,
 repository settings as code, and a template for new projects. Every project (starting with
-`onibat` and `kubernetes-infra`) consumes these instead of copying YAML around.
+`onibat` and `platform-infra`) consumes these instead of copying YAML around.
 
 > **Status: specification.** This README is the implementation brief. Build it milestone by
 > milestone (see [Milestones](#milestones)); each milestone is one pull request.
@@ -31,7 +31,7 @@ repository settings as code, and a template for new projects. Every project (sta
 
 Rulesets and protected branches on **private** repositories require GitHub Pro (or Team).
 On GitHub Free they only apply to public repositories. Without Pro the rules below cannot
-be enforced on `onibat` or `kubernetes-infra`; the CI checks still run, but a red PR could
+be enforced on `onibat` or `platform-infra`; the CI checks still run, but a red PR could
 be merged.
 
 ---
@@ -193,13 +193,13 @@ reusable workflow.
 - Authentication: a fine-grained personal access token limited to the managed repositories
   (Administration, Actions, Environments: read and write; Contents, Metadata: read), passed
   as `GITHUB_TOKEN` in the environment. Never in state or variables files.
-- State: same S3 backend pattern as kubernetes-infra (versioned bucket, `use_lockfile = true`).
+- State: versioned S3 bucket with `use_lockfile = true` (the pattern of the former kubernetes-infra design).
 - `modules/repository` inputs: `name`, `description`, `visibility`, `from_template`
   (creates the repository from `repo-template` via the `template` block),
   `required_checks` (list), `enforcement` (`active`/`disabled`),
   `environments` (name, required reviewers, deployment branch policy),
   `actions_access_level` (`none` by default, `user` for `github-standards`).
-- `repositories.tf`: `github-standards`, `repo-template`, `web-kit`, `kubernetes-infra`, `onibat`,
+- `repositories.tf`: `github-standards`, `repo-template`, `web-kit`, `platform-infra` (module key `kubernetes_infra`, kept so the state address does not change), `onibat`,
   `ai-agentic-setup`
   (the existing repository is named `Onibat`: import it with `tofu import`, do not recreate it).
 - New projects: `make new-repo NAME=<name>` asks only public or private, copies the latest
@@ -449,7 +449,7 @@ jobs:
   - keep `mobile.yml` local, it is project-specific;
   - move `[tool.commitizen]` to the standard values of section 4 (they already match);
   - import the repository into Terraform and apply the rulesets.
-- **kubernetes-infra**: created from `repo-template` by Terraform; its CI uses
+- **platform-infra** (renamed from kubernetes-infra on 2026-10-21): created from `repo-template` by Terraform; its CI uses
   `opentofu.yml`, `kubernetes-manifests.yml`, `commits.yml` and `security.yml`. It needs no
   release job (no versions).
 - Order for each repository:
@@ -492,7 +492,7 @@ jobs:
 | S2 | `python-uv.yml`, `container.yml`, `oci-manifests.yml`, `opentofu.yml`, `kubernetes-manifests.yml`, `actions/*` | each workflow exercised by a fixture job in `self-ci.yml` |
 | S3 | `terraform/` module + tests; manage `github-standards` and `repo-template` | `tofu test` green; **stop for my review of `tofu plan` before apply** |
 | S4 | `repo-template`, Renovate preset, hooks, `docs/` | a repository created from the template passes its first PR |
-| S5 | Adoption: onibat (import + callers), kubernetes-infra (created from the template) | rulesets active; direct push to `main` refused; a red PR cannot be merged; the onibat release publishes the image and the `onibat-deploy` artifact |
+| S5 | Adoption: onibat (import + callers), platform-infra, formerly kubernetes-infra (created from the template) | rulesets active; direct push to `main` refused; a red PR cannot be merged; the onibat release publishes the image and the `onibat-deploy` artifact |
 
 ## Rules for the implementing agent
 
