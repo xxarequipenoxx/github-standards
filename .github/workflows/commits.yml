@@ -10,6 +10,11 @@ name: commits
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: Runner label for the jobs that can run on a self-hosted runner (callers pass their RUNNER_LABEL repository variable, ADR 0010 of platform-infra); empty means ubuntu-latest
+        type: string
+        required: false
+        default: ""
       ai-attribution-check:
         description: Fail on AI attribution trailers or footers in commit messages, the pull request title and body
         type: boolean
@@ -21,7 +26,7 @@ permissions: {}
 jobs:
   check:
     name: conventional commits
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       contents: read
     env:
