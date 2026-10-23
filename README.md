@@ -354,6 +354,15 @@ Behaviour details:
   - caller trigger `pull_request` with `edited` and `ready_for_review`, so a title change
     or a draft becoming ready is re-evaluated. Never a required check.
 
+**Self-hosted runners (platform-infra ADR 0010).** `commits.yml`, `opentofu.yml`,
+`kubernetes-manifests.yml`, `python-uv.yml` (lint and audit) and `security.yml` (zizmor) take a
+`runs-on` input, empty by default, which means `ubuntu-latest`. Callers pass their own repository
+variable, `runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`, in the `with:` of the call: the
+expression resolves in the caller, and a called workflow does not rely on `vars`. Nothing changes
+while `RUNNER_LABEL` is unset. Jobs that need Docker stay on GitHub-hosted runners on purpose:
+container builds and signing, OCI manifest publishing, gitleaks, PostgreSQL service tests, and
+`release.yml`, which holds `contents: write`.
+
 `actions/setup-tools` pins versions in one place (verified 2026-09-21: OpenTofu 1.12.6,
 kustomize 5.8.1, kubeconform 0.8.0, flux 2.9.5, sops 3.13.3, age 1.3.2, commitizen 4.x)
 and is kept current by a Renovate regex manager.

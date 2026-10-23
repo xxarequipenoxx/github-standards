@@ -69,6 +69,7 @@ on:
 jobs:
   build:
     name: container build
+    # GitHub-hosted on purpose: Docker, QEMU and buildx need a privileged daemon (ADR 0010).
     runs-on: ubuntu-latest
     permissions:
       contents: read

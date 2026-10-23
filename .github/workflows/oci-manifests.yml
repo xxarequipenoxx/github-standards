@@ -67,6 +67,7 @@ on:
 jobs:
   publish:
     name: oci manifests
+    # GitHub-hosted on purpose: docker login needs the Docker CLI and daemon (ADR 0010).
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -11,6 +11,11 @@ name: kubernetes-manifests
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: Runner label for the jobs that can run on a self-hosted runner (callers pass their RUNNER_LABEL repository variable, ADR 0010 of platform-infra); empty means ubuntu-latest
+        type: string
+        required: false
+        default: ""
       paths:
         description: JSON list of kustomize directories to build and validate
         type: string
@@ -31,7 +36,7 @@ permissions: {}
 jobs:
   validate:
     name: kustomize and kubeconform
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -76,7 +81,7 @@ jobs:
   sops:
     name: sops encrypted
     if: inputs.check-sops
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
