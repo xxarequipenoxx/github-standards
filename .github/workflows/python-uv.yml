@@ -15,6 +15,11 @@ name: python-uv
 on:
   workflow_call:
     inputs:
+      test-timeout-minutes:
+        description: Upper bound of each test job, in minutes (a hung test fails instead of running 6 hours)
+        type: number
+        required: false
+        default: 30
       runs-on:
         description: Runner label for the jobs that can run on a self-hosted runner (callers pass their RUNNER_LABEL repository variable, ADR 0010 of platform-infra); empty means ubuntu-latest
         type: string
@@ -70,6 +75,7 @@ jobs:
   lint:
     name: lint and types
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+    timeout-minutes: 15
     permissions:
       contents: read
     defaults:
@@ -112,6 +118,8 @@ jobs:
   test-sqlite:
     name: tests (sqlite)
     runs-on: ubuntu-latest
+    # A hung test must not hold a runner for the 6-hour GitHub default.
+    timeout-minutes: ${{ inputs.test-timeout-minutes }}
     permissions:
       contents: read
     defaults:
@@ -184,6 +192,8 @@ jobs:
     if: inputs.postgres-versions != '' && inputs.postgres-versions != '[]'
     # GitHub-hosted on purpose: PostgreSQL service containers need Docker (ADR 0010).
     runs-on: ubuntu-latest
+    # A hung test must not hold a runner for the 6-hour GitHub default.
+    timeout-minutes: ${{ inputs.test-timeout-minutes }}
     permissions:
       contents: read
     strategy:
@@ -277,6 +287,7 @@ jobs:
   audit:
     name: dependency audit
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+    timeout-minutes: 10
     permissions:
       contents: read
     defaults:
