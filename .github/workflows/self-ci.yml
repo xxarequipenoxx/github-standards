@@ -33,9 +33,12 @@ jobs:
         run: |
           set -euo pipefail
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl --silent --show-error --fail --location --output "${RUNNER_TEMP}/${archive}" \
+          # Retries with curl's exponential backoff; the checksum is checked from a file.
+          curl --silent --show-error --fail --location --connect-timeout 20 --max-time 300 \
+            --retry 5 --retry-all-errors --output "${RUNNER_TEMP}/${archive}" \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
-          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          printf '%s  %s\n' "${ACTIONLINT_SHA256}" "${RUNNER_TEMP}/${archive}" > "${RUNNER_TEMP}/${archive}.sha256"
+          sha256sum --check --strict "${RUNNER_TEMP}/${archive}.sha256"
           mkdir -p "${RUNNER_TEMP}/actionlint-bin"
           tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/actionlint-bin" actionlint
           echo "${RUNNER_TEMP}/actionlint-bin" >> "${GITHUB_PATH}"
@@ -156,3 +159,6 @@ jobs:
 
       - name: Run the hook tests
         run: bash tests/hooks/run.sh
+
+      - name: Check for early-closing pipe consumers (SIGPIPE under pipefail)
+        run: bash scripts/check-pipes.sh
