@@ -104,20 +104,44 @@ runs:
         work="$(mktemp -d)"
         trap 'rm -rf "${work}"' EXIT
 
+        # No producer in this step writes into a consumer that can exit before end of input
+        # (head, grep -q, grep -m): under pipefail the producer would die of SIGPIPE (exit 141)
+        # at random. Downloads land in files and every check reads a whole file.
         fetch() { # url dest
-          curl --silent --show-error --fail --location --retry 3 --output "$2" "$1"
+          local attempt delay=5
+          for attempt in 1 2 3 4; do
+            # curl --retry covers transient HTTP and network errors inside one call; the outer
+            # loop with a growing pause rides out a longer GitHub release-asset outage.
+            if curl --silent --show-error --fail --location --connect-timeout 20 --max-time 300 \
+              --retry 3 --retry-all-errors --output "$2" "$1"; then
+              return 0
+            fi
+            if [[ "${attempt}" -lt 4 ]]; then
+              echo "::warning::download of $1 failed (attempt ${attempt}), retrying in ${delay}s"
+              sleep "${delay}"
+              delay=$((delay * 2))
+            fi
+          done
+          echo "::error::download of $1 failed after ${attempt} attempts"; exit 1
         }
         # Verify a file against the checksum file published with the same release.
         verify_from_sums() { # file sums-file asset-name
-          local expected
-          expected="$(grep -E "^[0-9a-f]{64}[[:space:]]+\*?$3\$" "$2" | awk '{print $1}' | sort -u)"
-          if [[ "$(wc -l <<< "${expected}")" -ne 1 || -z "${expected}" ]]; then
-            echo "::error::no unique checksum for $3 in $(basename "$2")"; exit 1
+          local lines="$1.sums.match" count expected _
+          # Write the matching lines to a file and read it whole: an identical line listed twice
+          # is tolerated (sort -u), two different checksums for one asset are not.
+          grep -E "^[0-9a-f]{64}[[:space:]]+\*?$3\$" "$2" > "${lines}" || true
+          sort -u -o "${lines}" "${lines}"
+          count="$(wc -l < "${lines}")"
+          if [[ "${count}" -ne 1 ]]; then
+            echo "::error::expected one checksum for $3 in $(basename "$2"), found ${count}"; exit 1
           fi
-          echo "${expected}  $1" | sha256sum --check --strict --quiet
+          read -r expected _ < "${lines}"
+          verify_pinned "$1" "${expected}"
         }
         verify_pinned() { # file sha256
-          echo "$2  $1" | sha256sum --check --strict --quiet
+          [[ "$2" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::malformed SHA-256 for $(basename "$1")"; exit 1; }
+          printf '%s  %s\n' "$2" "$1" > "$1.sha256"
+          sha256sum --check --strict --quiet "$1.sha256"
         }
 
         for tool in ${TOOLS//-/ }; do
@@ -186,15 +210,16 @@ runs:
         set -euo pipefail
         echo "${BIN_DIR}" >> "${GITHUB_PATH}"
         export PATH="${BIN_DIR}:${PATH}"
-        # sed -n 1p reads the whole output: head -1 would close the pipe early, the tool would get
-        # SIGPIPE (exit 141) and pipefail would fail the step at random.
+        # Capture the whole output, then print its first line: no pipe at all, so no tool can be
+        # killed by SIGPIPE (exit 141) the way "tofu version | head -1" was before v0.10.2.
+        first_line() { local out; out="$("$@")"; printf '%s\n' "${out%%$'\n'*}"; }
         for tool in ${TOOLS//-/ }; do
           case "${tool}" in
-            tofu) tofu version | sed -n 1p ;;
+            tofu) first_line tofu version ;;
             kustomize) echo "kustomize $(kustomize version)" ;;
             kubeconform) echo "kubeconform $(kubeconform -v)" ;;
             flux) flux version --client ;;
-            sops) sops --version 2>/dev/null | sed -n 1p ;;
+            sops) first_line sops --version 2>/dev/null ;;
             age) echo "age $(age --version)" ;;
           esac
         done

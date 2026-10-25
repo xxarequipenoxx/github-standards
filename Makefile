@@ -24,6 +24,7 @@ zizmor: ## Audit .github/workflows with zizmor
 test-hooks: ## Shellcheck and test the shared hooks and scripts (what the hook tests job runs)
 	shellcheck hooks/*.sh scripts/*.sh tests/hooks/*.sh
 	bash tests/hooks/run.sh
+	bash scripts/check-pipes.sh
 
 new-repo: ## Create a project from repo-template: make new-repo NAME=my-project [VISIBILITY=public|private]
 	@test -n "$(NAME)" || { echo "usage: make new-repo NAME=my-project [VISIBILITY=public|private]"; exit 2; }
