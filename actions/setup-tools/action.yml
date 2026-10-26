@@ -13,7 +13,7 @@ inputs:
   tofu-version:
     description: OpenTofu version (without the v)
     required: false
-    default: 1.13.1
+    default: 1.13.2
   kustomize-version:
     description: kustomize version (without the v)
     required: false
