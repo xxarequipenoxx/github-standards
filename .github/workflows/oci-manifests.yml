@@ -69,6 +69,7 @@ jobs:
     name: oci manifests
     # GitHub-hosted on purpose: docker login needs the Docker CLI and daemon (ADR 0010).
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write # push the artifact to GHCR (unused when push is false)
@@ -209,6 +210,7 @@ jobs:
     # caller's grants instead: packages write and id-token write when signing (README section 7).
     needs: publish
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2

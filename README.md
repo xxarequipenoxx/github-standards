@@ -288,14 +288,21 @@ All are `on: workflow_call`, declare the minimum `permissions` per job, pin thir
 actions by SHA, and set `concurrency` where it matters. Callers pass secrets explicitly (or
 `secrets: inherit`, which is acceptable between private repositories of the same owner).
 
+Every job sets `timeout-minutes`, so a hung step fails fast instead of running until
+GitHub's 6-hour cancel: 10 for lint, scan, sign and auto-merge jobs, 15 for manifest
+validation, publishing and release, 30 for tests and image builds. A caller job that
+`uses:` a reusable workflow cannot set `timeout-minutes` itself; the inputs
+`test-timeout-minutes`, `build-timeout-minutes` and `timeout-minutes` (opentofu) raise the
+bound where a caller needs longer.
+
 | Workflow | Inputs | Outputs | Caller permissions |
 |---|---|---|---|
 | `commits.yml` | `ai-attribution-check` (bool, default true) | | `contents: read`, `pull-requests: read` |
 | `release.yml` | | `released`, `version`, `tag` | `contents: write` |
-| `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool), `build-secrets` (multiline `id=value`, forwarded to BuildKit), `push` (bool, default true) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
+| `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool), `build-secrets` (multiline `id=value`, forwarded to BuildKit), `push` (bool, default true), `build-timeout-minutes` (default 30) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
 | `oci-manifests.yml` | `image-name`, `image-digest`, `version`, `path` (e.g. `deploy`), `overlay`, `artifact-name`, `crd-schema-locations`, `sign`, `push` (bool, default true) | `artifact` | `contents: read`, `packages: write`, `id-token: write` if signing |
-| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`) | | `contents: read` |
-| `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests` | | `contents: read` |
+| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`), `test-timeout-minutes` (default 30) | | `contents: read` |
+| `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests`, `timeout-minutes` (default 15) | | `contents: read` |
 | `kubernetes-manifests.yml` | `paths` (JSON list), `crd-schema-locations`, `check-sops` | | `contents: read` |
 | `security.yml` | | | `contents: read`, `security-events: write` (SARIF upload) |
 | `auto-merge.yml` | secret `token` (`AUTO_MERGE_TOKEN`) | | `contents: read` |

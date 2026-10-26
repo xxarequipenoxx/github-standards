@@ -30,6 +30,11 @@ on:
         type: boolean
         required: false
         default: true
+      timeout-minutes:
+        description: Upper bound of the check job, in minutes (raise it for long tofu test suites)
+        type: number
+        required: false
+        default: 15
 
 permissions: {}
 
@@ -40,6 +45,7 @@ jobs:
   check:
     name: opentofu
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     permissions:
       contents: read
     defaults:
