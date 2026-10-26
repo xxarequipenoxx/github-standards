@@ -21,6 +21,7 @@ jobs:
   lint:
     name: actionlint and zizmor
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -146,6 +147,7 @@ jobs:
   hooks:
     name: hook tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:

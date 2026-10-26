@@ -30,6 +30,7 @@ jobs:
   version:
     name: release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write # push the release tag and create the GitHub release
     concurrency:

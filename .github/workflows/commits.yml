@@ -27,6 +27,7 @@ jobs:
   check:
     name: conventional commits
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+    timeout-minutes: 10
     permissions:
       contents: read
     env:
