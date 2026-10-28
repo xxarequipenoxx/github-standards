@@ -301,7 +301,7 @@ bound where a caller needs longer.
 | `release.yml` | | `released`, `version`, `tag` | `contents: write` |
 | `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool), `build-secrets` (multiline `id=value`, forwarded to BuildKit), `push` (bool, default true), `build-timeout-minutes` (default 30) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
 | `oci-manifests.yml` | `image-name`, `image-digest`, `version`, `path` (e.g. `deploy`), `overlay`, `artifact-name`, `crd-schema-locations`, `sign`, `push` (bool, default true) | `artifact` | `contents: read`, `packages: write`, `id-token: write` if signing |
-| `python-uv.yml` | `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`), `test-timeout-minutes` (default 30) | | `contents: read` |
+| `python-uv.yml` | `enabled` (bool, default true; false reports every job as skipped), `test-sqlite` (bool, default true), `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`), `test-timeout-minutes` (default 30) | | `contents: read` |
 | `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests`, `timeout-minutes` (default 15) | | `contents: read` |
 | `kubernetes-manifests.yml` | `paths` (JSON list), `crd-schema-locations`, `check-sops` | | `contents: read` |
 | `security.yml` | | | `contents: read`, `security-events: write` (SARIF upload) |

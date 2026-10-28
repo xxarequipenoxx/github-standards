@@ -4,6 +4,12 @@ name: python-uv
 # ruff format --check, mypy, pytest with the coverage gate on SQLite plus one job per
 # PostgreSQL version as a service container, pip-audit on the exported lock.
 #
+# A caller that computes what a change touches (a cheap first job) passes `enabled: false`
+# for a change that cannot affect these checks (documentation only), and `test-sqlite: false`
+# where the SQLite run already passed (a push to main that only needs PostgreSQL). Each job
+# then reports its check as skipped, which a required check counts as passed, instead of not
+# reporting at all (a skipped caller job reports no inner check names).
+#
 # PostgreSQL jobs export libpq's PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE and
 # TEST_DATABASE_URL (postgresql://...); the project's test setup reads them.
 #
@@ -15,6 +21,16 @@ name: python-uv
 on:
   workflow_call:
     inputs:
+      enabled:
+        description: false reports every job as skipped without running it (a skipped required check counts as passed), for a change that cannot affect these checks such as documentation only
+        type: boolean
+        required: false
+        default: true
+      test-sqlite:
+        description: false skips the SQLite test job (reported as skipped), for a run that only needs the PostgreSQL jobs
+        type: boolean
+        required: false
+        default: true
       test-timeout-minutes:
         description: Upper bound of each test job, in minutes (a hung test fails instead of running 6 hours)
         type: number
@@ -74,6 +90,7 @@ env:
 jobs:
   lint:
     name: lint and types
+    if: inputs.enabled
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
@@ -117,6 +134,7 @@ jobs:
 
   test-sqlite:
     name: tests (sqlite)
+    if: inputs.enabled && inputs.test-sqlite
     runs-on: ubuntu-latest
     # A hung test must not hold a runner for the 6-hour GitHub default.
     timeout-minutes: ${{ inputs.test-timeout-minutes }}
@@ -189,7 +207,7 @@ jobs:
 
   test-postgres:
     name: tests (postgresql ${{ matrix.postgres }})
-    if: inputs.postgres-versions != '' && inputs.postgres-versions != '[]'
+    if: inputs.enabled && inputs.postgres-versions != '' && inputs.postgres-versions != '[]'
     # GitHub-hosted on purpose: PostgreSQL service containers need Docker (ADR 0010).
     runs-on: ubuntu-latest
     # A hung test must not hold a runner for the 6-hour GitHub default.
@@ -286,6 +304,7 @@ jobs:
 
   audit:
     name: dependency audit
+    if: inputs.enabled
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:

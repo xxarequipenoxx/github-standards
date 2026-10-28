@@ -63,6 +63,16 @@ The PostgreSQL job name carries the version: adding or removing a version in
 change. The conditional jobs (`container sign`, `oci manifests sign`, `sops encrypted`) are
 skipped, not absent, when their input is false; a skipped required check counts as passed.
 
+To skip `python-uv.yml` on a change that cannot affect it (documentation only), pass
+`enabled: false` rather than an `if:` on the caller job: a skipped caller job reports one check
+named after the caller job id and none of the `python / ...` names, so the required checks wait
+forever. With `enabled: false` every job reports its own name as skipped. `test-sqlite: false`
+does the same for `tests (sqlite)` alone. The PostgreSQL jobs are a matrix: skipped, they
+report one check with the unexpanded name, never `tests (postgresql <version>)`, so a repository
+that skips them (`enabled: false` or an empty `postgres-versions`) must not require that name.
+A caller that computes these values in an earlier job should fail open: when that job fails,
+pass `true` (run everything), never `false`.
+
 ---
 
 ## 3. Names produced in this repository
@@ -91,7 +101,8 @@ locally, which gives the fixture coverage the README asks for.
 
 These names, except `auto-merge / auto-merge`, are the `required_checks` value for
 `github-standards` in `terraform/repositories.tf` (milestone S3). The `container sign` and `oci manifests sign`
-jobs are skipped in the fixtures (no push, no signing) and are not listed.
+jobs are skipped in the fixtures (no push, no signing) and are not listed, nor are the
+`python-disabled / ...` checks, which only prove that `enabled: false` reports every job as skipped.
 
 ---
 
