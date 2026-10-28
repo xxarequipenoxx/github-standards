@@ -91,6 +91,16 @@ jobs:
       apt-packages: tree # exercises the apt input with a tiny package
       coverage-threshold: 70 # the PostgreSQL branch is uncovered on SQLite
 
+  # enabled: false must parse and report every job as skipped, at no runner cost.
+  python-disabled:
+    uses: ./.github/workflows/python-uv.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
+    permissions:
+      contents: read
+    with:
+      working-directory: tests/fixtures/python-uv
+      postgres-versions: '["17"]'
+      enabled: false
+
   container:
     uses: ./.github/workflows/container.yml # zizmor: ignore[self-repository] actionlint 1.7.12 does not parse the $/ form yet
     permissions:
