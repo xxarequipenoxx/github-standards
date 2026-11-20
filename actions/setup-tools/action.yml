@@ -13,7 +13,7 @@ inputs:
   tofu-version:
     description: OpenTofu version (without the v)
     required: false
-    default: 1.13.2
+    default: 1.13.9
   kustomize-version:
     description: kustomize version (without the v)
     required: false
@@ -25,7 +25,7 @@ inputs:
   flux-version:
     description: flux CLI version (without the v)
     required: false
-    default: 2.10.0
+    default: 2.10.1
   sops-version:
     description: sops version (without the v)
     required: false
