@@ -25,10 +25,12 @@ locals {
     "hook tests",
   ]
 
-  # The nine jobs of the current Onibat pr.yml (local jobs, so the check name is the job
-  # name). claude-review and the mobile workflow are deliberately not required.
+  # The nine required jobs of the Onibat pr.yml: local jobs (the check name is the job name)
+  # except the commit check, the reusable commits.yml (caller job id standards-commits), which
+  # replaced a duplicate local job. claude-review and the mobile workflow are deliberately not
+  # required.
   onibat_checks = [
-    "conventional commits",
+    "standards-commits / conventional commits",
     "syntax and static analysis",
     "tests (sqlite)",
     "tests (postgres)",
