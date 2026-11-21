@@ -95,7 +95,7 @@ jobs:
       - name: Run zizmor
         uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
-          version: 1.31.1
+          version: 1.32.0
           inputs: .github/workflows
           # With upload enabled the action uploads SARIF itself and does not fail on findings
           # (code scanning is the gate); without it, findings are annotated and fail the job.
