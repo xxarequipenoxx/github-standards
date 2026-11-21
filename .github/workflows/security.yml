@@ -27,14 +27,16 @@ permissions: {}
 jobs:
   gitleaks:
     name: gitleaks
-    # GitHub-hosted on purpose: gitleaks runs as a Docker container (ADR 0010).
-    runs-on: ubuntu-latest
+    # The release binary, not the container image: a self-hosted runner has no Docker (ADR 0010).
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
       security-events: write # SARIF upload to code scanning when sarif-upload is true
     env:
-      GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+      GITLEAKS_VERSION: 8.30.1
+      # gitleaks_<version>_checksums.txt of the release, linux_x64 archive.
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
     steps:
       - name: Check out with full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,6 +44,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Install gitleaks (pinned release, checksum verified)
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 -o "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/bin"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/bin" gitleaks
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
 
       - name: Scan the commits with gitleaks
         env:
@@ -56,12 +68,10 @@ jobs:
             echo "No pull request range: scanning the full history"
           fi
           mkdir -p "${RUNNER_TEMP}/gitleaks"
-          docker run --rm \
-            --volume "${GITHUB_WORKSPACE}:/repo:ro" \
-            --volume "${RUNNER_TEMP}/gitleaks:/out" \
-            "${GITLEAKS_IMAGE}" git "${log_opts[@]}" \
+          gitleaks git "${log_opts[@]}" \
             --redact --no-banner --exit-code 0 \
-            --report-format sarif --report-path /out/results.sarif /repo
+            --report-format sarif --report-path "${RUNNER_TEMP}/gitleaks/results.sarif" \
+            "${GITHUB_WORKSPACE}"
 
       - name: Upload the gitleaks SARIF to code scanning
         if: inputs.sarif-upload

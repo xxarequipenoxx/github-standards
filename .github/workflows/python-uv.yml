@@ -135,7 +135,7 @@ jobs:
   test-sqlite:
     name: tests (sqlite)
     if: inputs.enabled && inputs.test-sqlite
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     # A hung test must not hold a runner for the 6-hour GitHub default.
     timeout-minutes: ${{ inputs.test-timeout-minutes }}
     permissions:
@@ -173,20 +173,33 @@ jobs:
         env:
           PACKAGES: ${{ inputs.apt-packages }}
         run: |
+          missing=()
           for package in ${PACKAGES}; do
             [[ "${package}" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::invalid package name '${package}'"; exit 1; }
+            status="$(dpkg-query -W -f='${Status}' "${package}" 2>/dev/null || true)"
+            [[ "${status}" == *"install ok installed"* ]] || missing+=("${package}")
           done
-          sudo apt-get update -qq
-          # shellcheck disable=SC2086 # one argument per validated package name on purpose
-          sudo apt-get install -y -qq --no-install-recommends ${PACKAGES}
+          # A self-hosted runner has no sudo (ADR 0010 of platform-infra): its image ships them.
+          if [[ ${#missing[@]} -eq 0 ]]; then
+            echo "already installed: ${PACKAGES}"
+          elif sudo -n true 2>/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends "${missing[@]}"
+          else
+            echo "::error::missing on this runner, no sudo to install them: ${missing[*]} (add them to the runner image)"
+            exit 1
+          fi
 
       - name: Install the Playwright browsers
         if: inputs.playwright-browsers != ''
         env:
           BROWSERS: ${{ inputs.playwright-browsers }}
         run: |
+          # The system libraries need sudo; a self-hosted runner image ships them instead.
+          deps=()
+          if sudo -n true 2>/dev/null; then deps=(--with-deps); fi
           # shellcheck disable=SC2086 # the comma list becomes one argument per browser on purpose
-          uv run playwright install --with-deps ${BROWSERS//,/ }
+          uv run playwright install "${deps[@]}" ${BROWSERS//,/ }
 
       - name: Pytest with the coverage gate
         env:
@@ -270,20 +283,33 @@ jobs:
         env:
           PACKAGES: ${{ inputs.apt-packages }}
         run: |
+          missing=()
           for package in ${PACKAGES}; do
             [[ "${package}" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::invalid package name '${package}'"; exit 1; }
+            status="$(dpkg-query -W -f='${Status}' "${package}" 2>/dev/null || true)"
+            [[ "${status}" == *"install ok installed"* ]] || missing+=("${package}")
           done
-          sudo apt-get update -qq
-          # shellcheck disable=SC2086 # one argument per validated package name on purpose
-          sudo apt-get install -y -qq --no-install-recommends ${PACKAGES}
+          # A self-hosted runner has no sudo (ADR 0010 of platform-infra): its image ships them.
+          if [[ ${#missing[@]} -eq 0 ]]; then
+            echo "already installed: ${PACKAGES}"
+          elif sudo -n true 2>/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends "${missing[@]}"
+          else
+            echo "::error::missing on this runner, no sudo to install them: ${missing[*]} (add them to the runner image)"
+            exit 1
+          fi
 
       - name: Install the Playwright browsers
         if: inputs.playwright-browsers != ''
         env:
           BROWSERS: ${{ inputs.playwright-browsers }}
         run: |
+          # The system libraries need sudo; a self-hosted runner image ships them instead.
+          deps=()
+          if sudo -n true 2>/dev/null; then deps=(--with-deps); fi
           # shellcheck disable=SC2086 # the comma list becomes one argument per browser on purpose
-          uv run playwright install --with-deps ${BROWSERS//,/ }
+          uv run playwright install "${deps[@]}" ${BROWSERS//,/ }
 
       - name: Pytest with the coverage gate
         env:
