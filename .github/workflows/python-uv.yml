@@ -176,7 +176,8 @@ jobs:
           missing=()
           for package in ${PACKAGES}; do
             [[ "${package}" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::invalid package name '${package}'"; exit 1; }
-            dpkg-query -W -f='${Status}' "${package}" 2>/dev/null | grep -q 'install ok installed' || missing+=("${package}")
+            status="$(dpkg-query -W -f='${Status}' "${package}" 2>/dev/null || true)"
+            [[ "${status}" == *"install ok installed"* ]] || missing+=("${package}")
           done
           # A self-hosted runner has no sudo (ADR 0010 of platform-infra): its image ships them.
           if [[ ${#missing[@]} -eq 0 ]]; then
@@ -285,7 +286,8 @@ jobs:
           missing=()
           for package in ${PACKAGES}; do
             [[ "${package}" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::invalid package name '${package}'"; exit 1; }
-            dpkg-query -W -f='${Status}' "${package}" 2>/dev/null | grep -q 'install ok installed' || missing+=("${package}")
+            status="$(dpkg-query -W -f='${Status}' "${package}" 2>/dev/null || true)"
+            [[ "${status}" == *"install ok installed"* ]] || missing+=("${package}")
           done
           # A self-hosted runner has no sudo (ADR 0010 of platform-infra): its image ships them.
           if [[ ${#missing[@]} -eq 0 ]]; then
