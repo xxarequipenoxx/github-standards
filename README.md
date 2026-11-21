@@ -340,14 +340,17 @@ Behaviour details:
   container, which exports `TEST_DATABASE_URL` and the libpq `PG*` variables), `pip-audit`
   on the exported lock;
   - `apt-packages`: Debian packages installed with apt before pytest in both test jobs
-    (`ffmpeg` for media projects); names are validated before the install;
-  - `playwright-browsers`: comma list installed with `playwright install --with-deps`
-    before pytest (the project must depend on `playwright`); empty installs nothing;
+    (`ffmpeg` for media projects); names are validated, packages already installed are
+    skipped, and a runner without sudo (self-hosted) fails with the missing names instead,
+    so its image must ship them;
+  - `playwright-browsers`: comma list installed with `playwright install` before pytest
+    (the project must depend on `playwright`), with `--with-deps` only where sudo works;
+    empty installs nothing;
   - `git-credentials`: when true, git rewrites `https://github.com/` to use the
     `GIT_READ_TOKEN` secret (`url.insteadOf`) before `uv sync --frozen`, for private git
     dependencies such as web-kit; the token stays in `env:` and is never printed.
-- **`security.yml`**: gitleaks on the full history of the PR range, zizmor on
-  `.github/workflows/`.
+- **`security.yml`**: gitleaks on the full history of the PR range (the pinned release
+  binary, checksum verified), zizmor on `.github/workflows/`.
 - **`auto-merge.yml`**: turns on GitHub auto-merge (squash) for every pull request that does
   not announce a breaking change, and turns it off when a later push or edit announces one:
   - breaking change: `!` before the colon of the header, or a `BREAKING CHANGE:` /
@@ -362,12 +365,13 @@ Behaviour details:
     or a draft becoming ready is re-evaluated. Never a required check.
 
 **Self-hosted runners (platform-infra ADR 0010).** `commits.yml`, `opentofu.yml`,
-`kubernetes-manifests.yml`, `python-uv.yml` (lint and audit) and `security.yml` (zizmor) take a
+`kubernetes-manifests.yml`, `python-uv.yml` (lint, SQLite tests and audit) and `security.yml`
+(gitleaks and zizmor) take a
 `runs-on` input, empty by default, which means `ubuntu-latest`. Callers pass their own repository
 variable, `runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`, in the `with:` of the call: the
 expression resolves in the caller, and a called workflow does not rely on `vars`. Nothing changes
 while `RUNNER_LABEL` is unset. Jobs that need Docker stay on GitHub-hosted runners on purpose:
-container builds and signing, OCI manifest publishing, gitleaks, PostgreSQL service tests, and
+container builds and signing, OCI manifest publishing, PostgreSQL service tests, and
 `release.yml`, which holds `contents: write`.
 
 `actions/setup-tools` pins versions in one place (verified 2026-09-21: OpenTofu 1.12.6,
