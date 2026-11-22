@@ -11,7 +11,11 @@ name: python-uv
 # reporting at all (a skipped caller job reports no inner check names).
 #
 # PostgreSQL jobs export libpq's PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE and
-# TEST_DATABASE_URL (postgresql://...); the project's test setup reads them.
+# TEST_DATABASE_URL (postgresql://...); the project's test setup reads them. With
+# postgres-runs-on they run on a self-hosted runner whose pod already serves PostgreSQL on
+# localhost:5432 as ci/ci, database ci_test (a sidecar, platform-infra
+# gitops/platform/values/arc-runners-postgres.yaml): the service container is skipped (an empty
+# image) and the job checks the server's major version against the matrix with psql.
 #
 # Status check names: <caller job id> / lint and types, <caller job id> / tests (sqlite),
 #   <caller job id> / tests (postgresql <version>), <caller job id> / dependency audit
@@ -43,6 +47,11 @@ on:
         default: ""
       python-version:
         description: Python version for uv (empty = the project's .python-version or requires-python)
+        type: string
+        required: false
+        default: ""
+      postgres-runs-on:
+        description: Runner label whose pods serve PostgreSQL on localhost:5432 (user and password ci, database ci_test) and have psql; empty or a GitHub-hosted ubuntu-* label means ubuntu-latest with a service container, so callers pass their RUNNER_LABEL variable as is. The server's major version must match every entry of postgres-versions
         type: string
         required: false
         default: ""
@@ -221,8 +230,10 @@ jobs:
   test-postgres:
     name: tests (postgresql ${{ matrix.postgres }})
     if: inputs.enabled && inputs.postgres-versions != '' && inputs.postgres-versions != '[]'
-    # GitHub-hosted on purpose: PostgreSQL service containers need Docker (ADR 0010).
-    runs-on: ubuntu-latest
+    # A service container needs Docker, which a self-hosted runner has not (ADR 0010 of
+    # platform-infra): there the database is a sidecar of the runner pod (postgres-runs-on).
+    # A GitHub-hosted label (ubuntu-*, the fallback of RUNNER_LABEL) keeps the service container.
+    runs-on: ${{ (inputs.postgres-runs-on == '' || startsWith(inputs.postgres-runs-on, 'ubuntu-')) && 'ubuntu-latest' || inputs.postgres-runs-on }}
     # A hung test must not hold a runner for the 6-hour GitHub default.
     timeout-minutes: ${{ inputs.test-timeout-minutes }}
     permissions:
@@ -235,7 +246,8 @@ jobs:
       postgres:
         # The major version is chosen by the caller, so the official image is tag-pinned
         # (docs/required-checks.md, pitfalls): a digest cannot cover a matrix of versions.
-        image: docker.io/library/postgres:${{ matrix.postgres }}-alpine # zizmor: ignore[unpinned-images] version comes from the caller matrix
+        # An empty image skips the service: the self-hosted runner pod serves the database.
+        image: ${{ (inputs.postgres-runs-on == '' || startsWith(inputs.postgres-runs-on, 'ubuntu-')) && format('docker.io/library/postgres:{0}-alpine', matrix.postgres) || '' }} # zizmor: ignore[unpinned-images] version comes from the caller matrix
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci # throwaway credential of an ephemeral service container
@@ -274,6 +286,17 @@ jobs:
             echo "::error::git-credentials is true but the GIT_READ_TOKEN secret is empty"; exit 1
           fi
           git config --global "url.https://x-access-token:${GIT_READ_TOKEN}@github.com/.insteadOf" "https://github.com/"
+
+      - name: Check the PostgreSQL server of the runner pod
+        if: inputs.postgres-runs-on != '' && !startsWith(inputs.postgres-runs-on, 'ubuntu-')
+        env:
+          EXPECTED_MAJOR: ${{ matrix.postgres }}
+        run: |
+          command -v psql >/dev/null || { echo "::error::psql is missing on this runner (the image must ship postgresql-client)"; exit 1; }
+          version="$(psql -XtAc 'SHOW server_version_num')" || { echo "::error::no PostgreSQL server on localhost:5432 (the scale set needs the postgres sidecar)"; exit 1; }
+          major="$((version / 10000))"
+          echo "server version ${version}"
+          [[ "${major}" == "${EXPECTED_MAJOR}" ]] || { echo "::error::the runner pod serves PostgreSQL ${major}, the matrix asks for ${EXPECTED_MAJOR}"; exit 1; }
 
       - name: Sync the locked environment
         run: uv sync --frozen

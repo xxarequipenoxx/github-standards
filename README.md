@@ -301,7 +301,7 @@ bound where a caller needs longer.
 | `release.yml` | | `released`, `version`, `tag` | `contents: write` |
 | `container.yml` | `image-name`, `version`, `context`, `dockerfile`, `platforms`, `sign` (bool), `build-secrets` (multiline `id=value`, forwarded to BuildKit), `push` (bool, default true), `build-timeout-minutes` (default 30) | `image`, `digest` | `contents: read`, `packages: write`, `id-token: write` if signing |
 | `oci-manifests.yml` | `image-name`, `image-digest`, `version`, `path` (e.g. `deploy`), `overlay`, `artifact-name`, `crd-schema-locations`, `sign`, `push` (bool, default true) | `artifact` | `contents: read`, `packages: write`, `id-token: write` if signing |
-| `python-uv.yml` | `enabled` (bool, default true; false reports every job as skipped), `test-sqlite` (bool, default true), `python-version`, `postgres-versions` (JSON list, empty = none), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`), `test-timeout-minutes` (default 30) | | `contents: read` |
+| `python-uv.yml` | `enabled` (bool, default true; false reports every job as skipped), `test-sqlite` (bool, default true), `python-version`, `postgres-versions` (JSON list, empty = none), `postgres-runs-on` (runner label whose pods serve PostgreSQL on localhost, empty = `ubuntu-latest` with a service container), `coverage-threshold`, `working-directory`, `playwright-browsers` (comma list, empty = none), `apt-packages` (space list, empty = none), `git-credentials` (bool; secret `GIT_READ_TOKEN`), `test-timeout-minutes` (default 30) | | `contents: read` |
 | `opentofu.yml` | `working-directory`, `tofu-version`, `run-tests`, `timeout-minutes` (default 15) | | `contents: read` |
 | `kubernetes-manifests.yml` | `paths` (JSON list), `crd-schema-locations`, `check-sops` | | `contents: read` |
 | `security.yml` | | | `contents: read`, `security-events: write` (SARIF upload) |
@@ -371,8 +371,13 @@ Behaviour details:
 variable, `runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`, in the `with:` of the call: the
 expression resolves in the caller, and a called workflow does not rely on `vars`. Nothing changes
 while `RUNNER_LABEL` is unset. Jobs that need Docker stay on GitHub-hosted runners on purpose:
-container builds and signing, OCI manifest publishing, PostgreSQL service tests, and
-`release.yml`, which holds `contents: write`.
+container builds and signing, OCI manifest publishing, and `release.yml`, which holds
+`contents: write`. The PostgreSQL tests of `python-uv.yml` follow `postgres-runs-on`, a label of
+their own, since they need a scale set whose runner pod serves the database as a sidecar
+(PostgreSQL on localhost:5432, user and password `ci`, database `ci_test`, `psql` in the image;
+platform-infra `gitops/platform/values/arc-runners-postgres.yaml`). With it set, the service
+container is skipped and the job checks that the server's major version matches the matrix
+entry, so a caller testing another version keeps that input empty.
 
 `actions/setup-tools` pins versions in one place (verified 2026-09-21: OpenTofu 1.12.6,
 kustomize 5.8.1, kubeconform 0.8.0, flux 2.9.5, sops 3.13.3, age 1.3.2, commitizen 4.x)
