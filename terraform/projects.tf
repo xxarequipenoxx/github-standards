@@ -84,6 +84,13 @@ locals {
       visibility  = "private"
       enforcement = "active"
     }
+    "crypto-intelligence-platform" = {
+      description     = "Personal multi-exchange crypto portfolio, risk and controlled spot trading platform"
+      visibility      = "private"
+      enforcement     = "active"
+      main_ruleset_id = 28297756
+      tags_ruleset_id = 28297758
+    }
     # new-repo.sh inserts entries above this line, keep it last
   }
 
